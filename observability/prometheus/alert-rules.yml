@@ -1,0 +1,100 @@
+groups:
+  - name: service-health
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"order-service|payment-service|fraud-service|notification-service"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "{{ $labels.job }} has been unreachable by Prometheus for 30s."
+
+      - alert: DatabaseDown
+        expr: pg_up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "postgres-exporter cannot reach the database. All services depending on PostgreSQL will start failing writes/reads."
+
+      - alert: HighHttp5xxRate
+        expr: |
+          sum by (application) (rate(http_server_requests_seconds_count{outcome="SERVER_ERROR"}[5m]))
+          /
+          sum by (application) (rate(http_server_requests_seconds_count[5m]))
+          > 0.02
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "5xx rate above 2% on {{ $labels.application }}"
+          description: "{{ $labels.application }} is returning more than 2% server errors over the last 5 minutes."
+
+      - alert: HighRequestLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum by (application, le) (rate(http_server_requests_seconds_bucket[5m]))
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency above 500ms on {{ $labels.application }}"
+          description: "{{ $labels.application }} p95 request latency has exceeded 500ms for 5 minutes."
+
+      - alert: HighCpuUsage
+        expr: |
+          sum by (application) (process_cpu_usage{application=~"order-service|payment-service|fraud-service|notification-service"}) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage on {{ $labels.application }}"
+          description: "{{ $labels.application }} process CPU usage has been above 80% for 5 minutes."
+
+      - alert: HighJvmHeapUsage
+        expr: |
+          sum by (application) (jvm_memory_used_bytes{area="heap"})
+          /
+          sum by (application) (jvm_memory_max_bytes{area="heap"})
+          > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High JVM heap usage on {{ $labels.application }}"
+          description: "{{ $labels.application }} heap usage has exceeded 85% of max for 5 minutes — check for a memory leak."
+
+      - alert: PaymentFailureRateHigh
+        expr: |
+          sum(rate(http_server_requests_seconds_count{application="payment-service", status="402"}[10m]))
+          /
+          sum(rate(http_server_requests_seconds_count{application="payment-service", uri="/api/payments"}[10m]))
+          > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated payment failure rate"
+          description: "More than 20% of payments have failed (fraud decline or provider decline) over the last 10 minutes."
+
+      - alert: FraudDeclineRateHigh
+        expr: |
+          sum(rate(http_server_requests_seconds_count{application="fraud-service", uri="/api/fraud-checks"}[10m])) > 0
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Fraud-service traffic present"
+          description: "Informational: fraud-service is actively scoring payments. Combine with payment-service decline rate to spot fraud spikes."
+
+      - alert: NotificationQueueBacklog
+        expr: notification_queue_size > 200 or notification_processing_queue_size > 200
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Notification queue backlog building up"
+          description: "The in-process notification queue depth has exceeded 200 for 2 minutes, indicating the consumer pool can't keep up with incoming load."

@@ -1,0 +1,75 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Tails the JSON logs each Spring Boot / NGINX container writes to stdout,
+  # which Docker persists as json-file logs on the host.
+  filelog:
+    include:
+      - /var/lib/docker/containers/*/*-json.log
+    start_at: end
+    include_file_path: true
+    include_file_name: false
+    operators:
+      - type: json_parser
+        id: docker_parser
+        output: extract_log
+        timestamp:
+          parse_from: attributes.time
+          layout: '%Y-%m-%dT%H:%M:%S.%LZ'
+      - type: move
+        id: extract_log
+        from: attributes.log
+        to: body
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+
+  # Adds collector-level metadata so every signal is easy to filter on in Grafana.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: local
+        action: upsert
+
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+    tls:
+      insecure: true
+
+  # VictoriaLogs accepts OTLP logs natively on this path.
+  otlphttp/victorialogs:
+    endpoint: http://victorialogs:9428/insert/opentelemetry
+    tls:
+      insecure: true
+
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlphttp/tempo, debug]
+
+    logs:
+      receivers: [otlp, filelog]
+      processors: [memory_limiter, batch, resource]
+      exporters: [otlphttp/victorialogs, debug]
+
+  telemetry:
+    logs:
+      level: info

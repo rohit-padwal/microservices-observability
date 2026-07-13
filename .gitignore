@@ -1,0 +1,22 @@
+# Secrets
+.env
+
+# Java / Maven
+target/
+*.class
+*.jar
+!maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# k6
+load-tests/*.html
+load-tests/*.json.summary
+
+# Docker volumes are managed by Compose, not this repo

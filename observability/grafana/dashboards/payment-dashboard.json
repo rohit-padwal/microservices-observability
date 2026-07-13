@@ -1,0 +1,129 @@
+{
+  "title": "Payment Dashboard",
+  "uid": "payment-dashboard",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Successful vs failed payments /min",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"payment-service\", uri=\"/api/payments\", status=\"201\"}[1m])) * 60",
+          "legendFormat": "Completed"
+        },
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"payment-service\", uri=\"/api/payments\", status=\"402\"}[1m])) * 60",
+          "legendFormat": "Declined"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Payment failure rate (%)",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.2 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"payment-service\", uri=\"/api/payments\", status=\"402\"}[10m])) / sum(rate(http_server_requests_seconds_count{application=\"payment-service\", uri=\"/api/payments\"}[10m]))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Fraud decisions /min (approve / review / decline)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"fraud-service\", uri=\"/api/fraud-checks\"}[1m])) * 60",
+          "legendFormat": "Fraud checks / min"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Fraud-service p95 latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"fraud-service\"}[5m])))",
+          "legendFormat": "fraud-service p95"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "PostgreSQL: active connections & transaction rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "expr": "pg_stat_database_numbackends",
+          "legendFormat": "active connections ({{datname}})"
+        },
+        {
+          "expr": "rate(pg_stat_database_xact_commit[1m])",
+          "legendFormat": "commits/sec ({{datname}})"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Notification queue depth",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "expr": "notification_queue_size",
+          "legendFormat": "payment-service dispatch queue"
+        },
+        {
+          "expr": "notification_processing_queue_size",
+          "legendFormat": "notification-service processing queue"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Notifications sent vs failed /min",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_requests_seconds_count{application=\"notification-service\", uri=\"/api/notifications\", status=\"202\"}[1m])) * 60",
+          "legendFormat": "Accepted"
+        }
+      ]
+    }
+  ]
+}
