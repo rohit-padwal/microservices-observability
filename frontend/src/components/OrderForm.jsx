@@ -4,6 +4,7 @@ import { Plus, RotateCcw } from 'lucide-react';
 const initialFields = { userId: '1048', itemName: '', quantity: '1', totalAmount: '' };
 
 export default function OrderForm({ onCreate, saving }) {
+  // React owns these controlled fields; the PO note demonstrates reading a DOM-owned value through a ref.
   const [fields, setFields] = useState(initialFields);
   const [validationError, setValidationError] = useState('');
   const [savedNote, setSavedNote] = useState('');

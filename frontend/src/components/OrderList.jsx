@@ -25,6 +25,7 @@ const OrderRow = memo(function OrderRow({ order, onCancel, onSelect, cancelling 
 
 export default function OrderList({ orders, onCancel, onSelect, cancellingIds }) {
   const scrollRef = useRef(null);
+  // Virtualization bounds mounted rows; order IDs keep row identity stable as pages and filters change.
   const virtualizer = useVirtualizer({
     count: orders.length,
     getScrollElement: () => scrollRef.current,

@@ -1,15 +1,13 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSelector, createSlice } from '@reduxjs/toolkit';
 
 async function apiRequest(path, options = {}) {
-  const token = sessionStorage.getItem('fieldnotes.demo-session');
-  const demoToken = token ? JSON.parse(token).token : null;
   const headers = {
     Accept: 'application/json',
     ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-    ...(demoToken ? { Authorization: `Bearer ${demoToken}` } : {}),
     ...options.headers,
   };
 
+  // Parse both JSON and empty 204 responses so Redux thunks can expose useful API errors.
   const response = await fetch(path, { ...options, headers });
   const text = response.status === 204 ? '' : await response.text();
   let body = null;
@@ -26,9 +24,22 @@ async function apiRequest(path, options = {}) {
   return body;
 }
 
-export const fetchOrders = createAsyncThunk('orders/fetchAll', async (_, { signal, rejectWithValue }) => {
+export const fetchOrders = createAsyncThunk('orders/fetchAll', async (query, { signal, rejectWithValue }) => {
   try {
-    return await apiRequest('/api/orders', { signal });
+    // Let the database filter/page the result instead of downloading every order into the browser.
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(query ?? {})) {
+      if (value !== undefined && value !== null && value !== '') params.set(key, String(value));
+    }
+    return await apiRequest(`/api/orders?${params}`, { signal });
+  } catch (error) {
+    return rejectWithValue(error.message);
+  }
+});
+
+export const fetchOrderStatistics = createAsyncThunk('orders/fetchStatistics', async (_, { signal, rejectWithValue }) => {
+  try {
+    return await apiRequest('/api/orders/statistics', { signal });
   } catch (error) {
     return rejectWithValue(error.message);
   }
@@ -47,7 +58,10 @@ export const createOrder = createAsyncThunk('orders/create', async (order, { rej
 
 export const cancelOrder = createAsyncThunk('orders/cancel', async (id, { rejectWithValue }) => {
   try {
-    await apiRequest(`/api/orders/${id}/cancel`, { method: 'POST' });
+    await apiRequest(`/api/orders/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'CANCELLED' }),
+    });
     return id;
   } catch (error) {
     return rejectWithValue(error.message);
@@ -58,6 +72,11 @@ const ordersSlice = createSlice({
   name: 'orders',
   initialState: {
     items: [],
+    statistics: null,
+    page: 0,
+    size: 20,
+    totalElements: 0,
+    totalPages: 0,
     status: 'idle',
     error: null,
     saving: false,
@@ -77,11 +96,18 @@ const ordersSlice = createSlice({
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.status = 'succeeded';
-        state.items = action.payload;
+        state.items = action.payload.content;
+        state.page = action.payload.number;
+        state.size = action.payload.size;
+        state.totalElements = action.payload.totalElements;
+        state.totalPages = action.payload.totalPages;
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.status = action.meta.aborted ? 'idle' : 'failed';
         state.error = action.meta.aborted ? null : action.payload || action.error.message;
+      })
+      .addCase(fetchOrderStatistics.fulfilled, (state, action) => {
+        state.statistics = action.payload;
       })
       .addCase(createOrder.pending, (state) => {
         state.saving = true;
@@ -113,3 +139,8 @@ const ordersSlice = createSlice({
 
 export default ordersSlice.reducer;
 export const { dismissSaveError } = ordersSlice.actions;
+
+const selectOrderState = (state) => state.orders;
+// Memoized selectors keep component reads stable when unrelated store fields change.
+export const selectOrders = createSelector(selectOrderState, (orders) => orders.items);
+export const selectOrderStatistics = createSelector(selectOrderState, (orders) => orders.statistics);

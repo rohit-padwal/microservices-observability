@@ -4,18 +4,25 @@ import com.example.orderservice.client.PaymentServiceClient;
 import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.model.Order;
 import com.example.orderservice.repository.OrderRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.math.BigDecimal;
+import java.util.Set;
 
 @Service
 public class OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> SORT_FIELDS = Set.of("id", "createdAt", "totalAmount", "status");
 
     private final OrderRepository orderRepository;
     private final PaymentServiceClient paymentServiceClient;
@@ -36,6 +43,7 @@ public class OrderService {
      */
     @Transactional
     public Order createOrder(Order order) {
+        // This demo keeps the local write and payment result in one transaction; production should avoid holding it across network I/O.
         MDC.put("user_id", String.valueOf(order.getUserId()));
         try {
             order.setStatus(Order.OrderStatus.CREATED);
@@ -64,8 +72,27 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<Order> getAllOrders() {
-        return orderRepository.findAll();
+    public Page<Order> searchOrders(Order.OrderStatus status, Long userId, String itemName,
+                                    int page, int size, String sortField, Sort.Direction direction) {
+        if (!SORT_FIELDS.contains(sortField)) {
+            throw new IllegalArgumentException("Unsupported order sort field: " + sortField);
+        }
+        // Bound page size and allow-list sort properties so API callers cannot request unbounded reads or arbitrary fields.
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                Sort.by(direction, sortField));
+        String normalizedItemName = itemName == null || itemName.isBlank() ? null : itemName.trim();
+        return orderRepository.search(status, userId, normalizedItemName, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public OrderStatistics getStatistics() {
+        BigDecimal paidVolume = orderRepository.sumAmountByStatus(Order.OrderStatus.PAID);
+        return new OrderStatistics(
+                orderRepository.count(),
+                orderRepository.countByStatus(Order.OrderStatus.PAID),
+                orderRepository.countByStatus(Order.OrderStatus.PAYMENT_FAILED),
+                orderRepository.countByStatus(Order.OrderStatus.CANCELLED),
+            paidVolume == null ? BigDecimal.ZERO : paidVolume);
     }
 
     @Transactional(readOnly = true)
@@ -76,9 +103,23 @@ public class OrderService {
 
     @Transactional
     public void cancelOrder(Long id) {
-        Order order = getOrderById(id);
-        order.setStatus(Order.OrderStatus.CANCELLED);
-        orderRepository.save(order);
-        log.info("Order cancelled id={}", id);
+        updateStatus(id, Order.OrderStatus.CANCELLED);
     }
+
+    @Transactional
+    public Order updateStatus(Long id, Order.OrderStatus status) {
+        if (status != Order.OrderStatus.CANCELLED) {
+            throw new IllegalArgumentException("Order status can only be changed to CANCELLED through this API");
+        }
+        Order order = getOrderById(id);
+        if (order.getStatus() != Order.OrderStatus.CANCELLED) {
+            order.setStatus(Order.OrderStatus.CANCELLED);
+            order = orderRepository.save(order);
+        }
+        log.info("Order cancelled id={}", id);
+        return order;
+    }
+
+    public record OrderStatistics(long totalOrders, long paidOrders, long failedPayments,
+                                  long cancelledOrders, BigDecimal paidVolume) {}
 }

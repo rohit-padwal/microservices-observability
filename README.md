@@ -173,17 +173,42 @@ to Alertmanager, which routes to Slack and/or email based on severity.
    | VictoriaLogs (via Grafana) | Explore → VictoriaLogs datasource |
    | VictoriaMetrics | http://localhost:8428/vmui |
 
-  The Order Desk includes an interview concept lab and uses the order API
-  through the gateway. Its JWT sign-in is a client-only learning example;
-  the Spring Boot services do not validate JWTs or enforce protected routes.
-  For frontend-only development, start the API stack with Docker Compose, then
-  run `cd frontend && npm install && npm run dev` and open
-  http://localhost:5173.
+    The Order Desk uses the order API through the gateway. Its sign-in is a
+    client-only demo session; the Spring Boot services do not validate JWTs or
+    enforce protected routes. For frontend-only development, start the API stack
+    with Docker Compose, then run `cd frontend && npm ci && npm run dev` and open
+    http://localhost:5173.
 
 6. Generate steady traffic while you explore:
    ```bash
    k6 run -e SCENARIO=load_100 load-tests/order-flow.js
    ```
+
+## Developer Checks
+
+- [Project Architecture and Trade-offs](docs/PROJECT_ARCHITECTURE.md)
+- [HTTP API Reference](docs/API.md)
+
+Run frontend unit tests, production build, and browser E2E tests with:
+
+```bash
+cd frontend
+npm ci
+npm test
+npm run build
+npx playwright install chromium
+npm run test:e2e
+```
+
+Run an individual backend test suite using Java 21, for example:
+
+```bash
+mvn -f microservices/order/pom.xml clean verify
+```
+
+The GitHub Actions workflow runs Java checks for all four services and the
+frontend unit/build/E2E checks. Full persistence and multi-service integration
+verification requires Docker Compose and a running Docker daemon.
 
 ### Kubernetes
 

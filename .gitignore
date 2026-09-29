@@ -9,6 +9,8 @@ target/
 
 # Node.js
 node_modules/
+frontend/test-results/
+frontend/playwright-report/
 
 # IDE
 .idea/

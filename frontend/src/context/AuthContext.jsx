@@ -11,6 +11,7 @@ function encodeBase64Url(value) {
 
 function createDemoToken(username) {
   const issuedAt = Math.floor(Date.now() / 1000);
+  // This unsigned token is only a local route-demo value; the backend does not trust or validate it.
   const header = encodeBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' }));
   const payload = encodeBase64Url(JSON.stringify({
     sub: username,

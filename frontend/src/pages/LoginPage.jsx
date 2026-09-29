@@ -7,7 +7,7 @@ export default function LoginPage() {
   const { isAuthenticated, signIn } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [username, setUsername] = useState('interview-candidate');
+  const [username, setUsername] = useState('demo-operator');
   const [password, setPassword] = useState('fieldnotes-demo');
   const [error, setError] = useState('');
 
@@ -25,7 +25,7 @@ export default function LoginPage() {
 
   return (
     <main className="login-shell">
-      <div className="login-aside"><div className="login-brand"><span className="brand-mark">F</span><span>FIELDNOTES <i>/ OPS</i></span></div><div className="login-manifesto"><p className="eyebrow">A working study guide</p><h1>Learn React<br />by running<br /><em>the system.</em></h1><p>Orders, state transitions, and real service responses. One small operations desk for the concepts that come up in interviews.</p></div><span className="login-coordinate">JAVA 21 &nbsp; · &nbsp; SPRING BOOT &nbsp; · &nbsp; REACT</span></div>
+      <div className="login-aside"><div className="login-brand"><span className="brand-mark">F</span><span>FIELDNOTES <i>/ OPS</i></span></div><div className="login-copy"><p className="eyebrow">Service operations</p><h1>Orders in.<br />Signals out.<br /><em>Stay curious.</em></h1><p>Follow orders through payment and fraud checks while traces, metrics, and service health tell the rest of the story.</p></div><span className="login-coordinate">JAVA 21 &nbsp; · &nbsp; SPRING BOOT &nbsp; · &nbsp; REACT</span></div>
       <section className="login-form-wrap">
         <div className="login-form-heading"><span className="login-icon"><LockKeyhole size={19} /></span><p className="eyebrow">Demo session</p><h2>Step inside.</h2><p>Any non-empty username and password opens this client-side learning demo.</p></div>
         <form className="login-form" onSubmit={handleSubmit} noValidate>
