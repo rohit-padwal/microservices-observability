@@ -7,6 +7,9 @@ target/
 *.jar
 !maven-wrapper.jar
 
+# Node.js
+node_modules/
+
 # IDE
 .idea/
 *.iml

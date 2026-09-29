@@ -165,12 +165,20 @@ to Alertmanager, which routes to Slack and/or email based on severity.
 
    | Tool | URL |
    |---|---|
+  | Order Desk (React) | http://localhost:5173 |
    | Grafana | http://localhost:3000 (anonymous viewer access enabled) |
    | Prometheus | http://localhost:9090 |
    | Alertmanager | http://localhost:9093 |
    | Tempo (via Grafana) | Explore → Tempo datasource |
    | VictoriaLogs (via Grafana) | Explore → VictoriaLogs datasource |
    | VictoriaMetrics | http://localhost:8428/vmui |
+
+  The Order Desk includes an interview concept lab and uses the order API
+  through the gateway. Its JWT sign-in is a client-only learning example;
+  the Spring Boot services do not validate JWTs or enforce protected routes.
+  For frontend-only development, start the API stack with Docker Compose, then
+  run `cd frontend && npm install && npm run dev` and open
+  http://localhost:5173.
 
 6. Generate steady traffic while you explore:
    ```bash
