@@ -25,6 +25,10 @@ public class FraudServiceClient {
      * Synchronously asks fraud-service to score this payment before we settle it.
      * If fraud-service is unreachable or errors, we fail closed (treat as DECLINE)
      * rather than silently letting a payment through unchecked.
+    * @param orderId order being paid
+    * @param paymentId pending payment being screened
+    * @param amount requested payment amount
+    * @return approval flag and decision/reason for Payment Service
      */
     public FraudCheckResult checkPayment(Long orderId, Long paymentId, BigDecimal amount) {
         try {

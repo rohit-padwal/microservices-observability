@@ -20,6 +20,12 @@ public class PaymentServiceClient {
         this.paymentServiceClient = paymentServiceClient;
     }
 
+    /**
+     * Requests payment and converts downstream declines/errors into a failed result for the order workflow.
+     * @param orderId persisted order identifier
+     * @param amount order total to charge
+     * @return success flag and payment ID when Payment Service returned one
+     */
     public PaymentResult requestPayment(Long orderId, BigDecimal amount) {
         try {
             PaymentResponse response = paymentServiceClient.post()

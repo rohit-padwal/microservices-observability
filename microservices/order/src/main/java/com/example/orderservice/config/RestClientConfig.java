@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 
+/** Builds the observed Payment client and relays the authenticated bearer token across the service boundary. */
 @Configuration
 public class RestClientConfig {
 

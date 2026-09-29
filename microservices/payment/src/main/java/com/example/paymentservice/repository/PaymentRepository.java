@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 /** SQL/JPA query boundary for bounded payment search and aggregate reporting. */
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
+        /** Optional filters execute in SQL, and the Page result includes a matching filtered total count. */
         @Query("""
                         select p from Payment p
                         where (:status is null or p.status = :status)
@@ -27,6 +28,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
         long countByStatus(Payment.PaymentStatus status);
 
+        /** Aggregate completed amounts in the database instead of loading payment entities into the service. */
         @Query("select sum(p.amount) from Payment p where p.status = :status")
         BigDecimal sumAmountByStatus(@Param("status") Payment.PaymentStatus status);
 }

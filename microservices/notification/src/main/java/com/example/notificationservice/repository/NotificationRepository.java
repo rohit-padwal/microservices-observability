@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 /** Database boundary for pageable delivery searches and status counts. */
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
+        /** Database-side optional filters keep result/count work bounded for growing delivery history. */
         @Query("""
                         select n from Notification n
                         where (:status is null or n.status = :status)

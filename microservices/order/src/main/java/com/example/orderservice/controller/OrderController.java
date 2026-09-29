@@ -31,6 +31,11 @@ public class OrderController {
         this.orderService = orderService;
     }
 
+    /**
+     * Creates an order and starts the payment workflow.
+     * @param request validated business fields; the caller cannot choose ID, status, or timestamps
+     * @return {@code 201 Created} with the persisted order DTO
+     */
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
         // The request DTO prevents clients from choosing persistence IDs or payment-owned status fields.
@@ -42,7 +47,13 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(orderService.createOrder(order)));
     }
 
-    /** page is zero-based, size is capped at 100, and sort is allow-listed to prevent arbitrary entity-property queries. */
+    /**
+     * Searches orders in the database and returns a stable page DTO.
+     * @param page zero-based page index; defaults to zero
+     * @param size requested rows per page, bounded to 1..100
+     * @param sort allow-listed entity property; arbitrary property names are rejected
+     * @return matching order slice plus total page/row counts
+     */
     @GetMapping
     public PageResponse<OrderResponse> searchOrders(
             @RequestParam(required = false) Order.OrderStatus status,
@@ -60,34 +71,39 @@ public class OrderController {
             result.getTotalPages(), result.getTotalElements());
     }
 
+    /** Returns global counts and paid volume, not values limited to the current search page. */
     @GetMapping("/statistics")
     public OrderService.OrderStatistics getStatistics() {
         return orderService.getStatistics();
     }
 
+    /** @param id persisted order identifier; missing records become 404 responses */
     @GetMapping("/{id}")
     public OrderResponse getOrderById(@PathVariable Long id) {
         return OrderResponse.from(orderService.getOrderById(id));
     }
 
+    /** Cancels an order and returns 204; the server permits this mutation only to ADMIN. */
     @PostMapping("/{id}/cancel")
     public ResponseEntity<Void> cancelOrder(@PathVariable Long id) {
         orderService.cancelOrder(id);
         return ResponseEntity.noContent().build();
     }
 
+    /** Requests the cancellation transition; payment-owned terminal outcomes cannot be set by this endpoint. */
     @PatchMapping("/{id}/status")
     public OrderResponse updateStatus(@PathVariable Long id, @Valid @RequestBody UpdateOrderStatusRequest request) {
         return OrderResponse.from(orderService.updateStatus(id, request.status()));
     }
 
-    /** Client-owned order fields only; IDs, status, and timestamps remain controlled by the service/database. */
+    /** Client-owned order fields only; positive IDs/counts/amounts and a nonblank name are required. */
     public record CreateOrderRequest(
             @jakarta.validation.constraints.NotNull @Positive Long userId,
             @jakarta.validation.constraints.NotBlank @Size(max = 255) String itemName,
             @jakarta.validation.constraints.NotNull @Positive Integer quantity,
             @jakarta.validation.constraints.NotNull @Positive BigDecimal totalAmount) {}
 
+    /** Request body for status changes; service logic accepts only CANCELLED from the persisted status enum. */
     public record UpdateOrderStatusRequest(@jakarta.validation.constraints.NotNull Order.OrderStatus status) {}
 
     /** Stable page shape prevents the frontend from depending on Spring Data's internal Page JSON representation. */

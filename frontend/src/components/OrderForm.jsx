@@ -3,7 +3,10 @@ import { Plus, RotateCcw } from 'lucide-react';
 
 const initialFields = { userId: '1048', itemName: '', quantity: '1', totalAmount: '' };
 
-// Owns transient draft/validation state and delegates the persisted create action to its parent.
+/**
+ * Owns transient controlled fields/validation and delegates persistence to the parent.
+ * @param {{onCreate: (order: object) => Promise<void>, saving: boolean}} props Create callback and request state
+ */
 export default function OrderForm({ onCreate, saving }) {
   // React owns these controlled fields; the PO note demonstrates reading a DOM-owned value through a ref.
   const [fields, setFields] = useState(initialFields);

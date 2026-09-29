@@ -5,6 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import OrderDashboard from './pages/OrderDashboard.jsx';
 
+/** Shared navigation/account layout rendered only inside the authenticated route branch. */
+/** Shared navigation/account shell rendered only after the route guard accepts the session and role. */
 function AppShell() {
   const { username, signOut } = useAuth();
   const navigate = useNavigate();
@@ -33,8 +35,8 @@ function AppShell() {
   );
 }
 
+/** Public login route plus the protected Order Desk route tree; unknown protected paths return to the desk. */
 export default function App() {
-  // Login is public; operational pages share one role-aware route boundary and the common application shell.
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

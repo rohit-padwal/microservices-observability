@@ -7,7 +7,7 @@ import OrderList from '../components/OrderList.jsx';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
-// Coordinates server-backed order state; inputs stay local while shared records and request states live in Redux.
+/** Operations page combining global metrics, a filtered Redux-backed server page, and create/detail workflows. */
 export default function OrderDashboard() {
   const dispatch = useDispatch();
   const { items, statistics, page, size, totalElements, totalPages, status, error, saving, saveError, cancellingIds } = useSelector((state) => state.orders);

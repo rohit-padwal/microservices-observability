@@ -72,7 +72,14 @@ public class OrderService {
         }
     }
 
-    /** Normalize optional filters and keep list reads bounded; never let caller-provided sort names reach JPA unchecked. */
+    /**
+     * Runs a bounded database search for the requested order filters.
+     * @param page zero-based index; negative values normalize to zero
+     * @param size requested page size, clamped to 1..100
+     * @param sortField allow-listed persisted property
+     * @param direction result ordering
+     * @return page of matching orders with total-count metadata
+     */
     @Transactional(readOnly = true)
     public Page<Order> searchOrders(Order.OrderStatus status, Long userId, String itemName,
                                     int page, int size, String sortField, Sort.Direction direction) {
@@ -86,7 +93,7 @@ public class OrderService {
         return orderRepository.search(status, userId, normalizedItemName, pageable);
     }
 
-    /** Aggregate across the full table in SQL so dashboard totals do not depend on the currently visible page. */
+    /** Aggregates the entire order table in SQL so totals do not depend on current filters or page. */
     @Transactional(readOnly = true)
     public OrderStatistics getStatistics() {
         BigDecimal paidVolume = orderRepository.sumAmountByStatus(Order.OrderStatus.PAID);
@@ -98,17 +105,28 @@ public class OrderService {
             paidVolume == null ? BigDecimal.ZERO : paidVolume);
     }
 
+    /**
+     * @param id persisted order key
+     * @return entity or throws OrderNotFoundException for HTTP 404 mapping
+     */
     @Transactional(readOnly = true)
     public Order getOrderById(Long id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> new OrderNotFoundException(id));
     }
 
+    /** Applies the cancellation business transition and persists it; payment statuses are not caller-editable. */
     @Transactional
     public void cancelOrder(Long id) {
         updateStatus(id, Order.OrderStatus.CANCELLED);
     }
 
+    /**
+     * Applies the supported order status transition.
+     * @param status only CANCELLED is accepted; Payment Service owns paid/failed outcomes
+     * @return updated order entity for response mapping
+     * @throws IllegalArgumentException when a caller requests another status
+     */
     @Transactional
     public Order updateStatus(Long id, Order.OrderStatus status) {
         // Payment owns PAID/PAYMENT_FAILED; Order exposes only the customer cancellation transition here.

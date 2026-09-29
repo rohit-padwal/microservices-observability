@@ -23,6 +23,10 @@ const OrderRow = memo(function OrderRow({ order, onCancel, onSelect, cancelling 
   );
 });
 
+/**
+ * Renders one server page with virtual rows and reports row actions to its parent.
+ * @param {{orders: object[], onCancel: (id: number) => void, onSelect: (id: number) => void, cancellingIds: number[]}} props
+ */
 export default function OrderList({ orders, onCancel, onSelect, cancellingIds }) {
   const scrollRef = useRef(null);
   // Virtualization bounds mounted rows; order IDs keep row identity stable as pages and filters change.

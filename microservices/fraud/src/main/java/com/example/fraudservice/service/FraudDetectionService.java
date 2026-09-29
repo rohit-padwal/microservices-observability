@@ -38,6 +38,10 @@ public class FraudDetectionService {
      * random jitter so identical amounts don't always produce identical
      * verdicts (real fraud models factor in velocity, device fingerprint,
      * geo-mismatch, etc. — out of scope for this demo).
+    * @param orderId cross-service order identifier
+    * @param paymentId cross-service payment identifier
+    * @param amount positive amount validated at the controller boundary
+    * @return persisted risk score and APPROVE/REVIEW/DECLINE decision
      */
     @Transactional
     public FraudCheck evaluate(Long orderId, Long paymentId, BigDecimal amount) {
@@ -83,6 +87,7 @@ public class FraudDetectionService {
         }
     }
 
+    /** Executes optional filters and page slicing in the repository, not against an in-memory full-table list. */
     @Transactional(readOnly = true)
     public Page<FraudCheck> search(FraudCheck.Decision decision, Long orderId, Long paymentId,
                                    BigDecimal minimumAmount, BigDecimal maximumAmount,
@@ -94,11 +99,16 @@ public class FraudDetectionService {
         return fraudCheckRepository.search(decision, orderId, paymentId, minimumAmount, maximumAmount, pageable);
     }
 
+    /**
+     * @param id persisted check key
+     * @return check or FraudCheckNotFoundException for HTTP 404 mapping
+     */
     @Transactional(readOnly = true)
     public FraudCheck getById(Long id) {
         return fraudCheckRepository.findById(id).orElseThrow(() -> new FraudCheckNotFoundException(id));
     }
 
+    /** @return global decision counts and average score; an empty table reports zero average risk */
     @Transactional(readOnly = true)
     public FraudStatistics getStatistics() {
         Double average = fraudCheckRepository.averageRiskScore();
@@ -108,6 +118,7 @@ public class FraudDetectionService {
                 fraudCheckRepository.countByDecision(FraudCheck.Decision.DECLINE), average == null ? 0 : average);
     }
 
+    /** Resolves REVIEW to APPROVE/DECLINE only; a terminal verdict remains an audit outcome. */
     @Transactional
     public FraudCheck resolveReview(Long id, FraudCheck.Decision decision) {
         FraudCheck check = getById(id);
@@ -119,6 +130,7 @@ public class FraudDetectionService {
         return fraudCheckRepository.save(check);
     }
 
+    /** Removes only an unresolved review; approved and declined decisions remain auditable. */
     @Transactional
     public void deleteReview(Long id) {
         FraudCheck check = getById(id);
@@ -135,6 +147,7 @@ public class FraudDetectionService {
         public FraudCheckNotFoundException(Long id) { super("Fraud check not found: " + id); }
     }
 
+    /** Signals an attempted rewrite/delete of a terminal decision; REST advice returns HTTP 409. */
     public static class FraudConflictException extends RuntimeException {
         public FraudConflictException(String message) { super(message); }
     }

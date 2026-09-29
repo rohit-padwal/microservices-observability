@@ -39,7 +39,11 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    /** Runs fraud screening and settlement; 402 represents a business decline, not malformed input. */
+    /**
+     * Runs fraud screening and settlement; {@code 402} is a business decline, not malformed input.
+     * @param request owning order ID and positive amount
+     * @return payment DTO with {@code 201} when completed or {@code 402} when declined
+     */
     @PostMapping
     public ResponseEntity<PaymentResponse> processPayment(@Valid @RequestBody CreatePaymentRequest request) {
         Payment payment = new Payment();
@@ -52,7 +56,13 @@ public class PaymentController {
         return ResponseEntity.status(status).body(PaymentResponse.from(result));
     }
 
-    /** Page indexes start at zero, page size is capped at 100, and sort names are allow-listed. */
+    /**
+     * Searches payments by status, order ID, and optional amount bounds.
+     * @param page zero-based page index
+     * @param size requested rows, bounded to 1..100
+     * @param sort allow-listed entity property; unsupported values return 400
+     * @return page DTO containing payment response DTOs and total counts
+     */
     @GetMapping
     public PageResponse<PaymentResponse> searchPayments(
             @RequestParam(required = false) Payment.PaymentStatus status,
@@ -68,16 +78,19 @@ public class PaymentController {
         return PageResponse.from(result);
     }
 
+    /** Returns global payment counts/volume; the security filter limits this endpoint to ADMIN. */
     @GetMapping("/statistics")
     public PaymentService.PaymentStatistics getStatistics() {
         return paymentService.getStatistics();
     }
 
+    /** @param id persisted payment ID; missing records return 404 */
     @GetMapping("/{id}")
     public PaymentResponse getPaymentById(@PathVariable @Positive Long id) {
         return PaymentResponse.from(paymentService.getPaymentById(id));
     }
 
+    /** Returns a bounded, newest-first page for one order's payments. */
     @GetMapping("/order/{orderId}")
     public PageResponse<PaymentResponse> getPaymentsByOrderId(
             @PathVariable @Positive Long orderId,
@@ -90,12 +103,14 @@ public class PaymentController {
         return PageResponse.from(result);
     }
 
+    /** Only a pending payment may be administratively marked failed; settled records are immutable. */
     @PatchMapping("/{id}/status")
     public PaymentResponse updateStatus(@PathVariable @Positive Long id,
                                         @Valid @RequestBody UpdatePaymentStatusRequest request) {
         return PaymentResponse.from(paymentService.updateStatus(id, request.status()));
     }
 
+    /** Deletes only an unsettled pending record; completed financial history is retained. */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePendingPayment(@PathVariable @Positive Long id) {
         paymentService.deletePendingPayment(id);
@@ -103,12 +118,16 @@ public class PaymentController {
     }
 
     /** Only the owning order and positive amount come from the caller; Payment Service chooses payment status. */
+    /** Request facts only; Payment Service owns PENDING/COMPLETED/FAILED state and provider decisions. */
     public record CreatePaymentRequest(@NotNull @Positive Long orderId,
                                        @NotNull @Positive BigDecimal amount) {}
 
+    /** Status field uses the domain enum; the service further restricts the only allowed transition. */
+    /** Administrative transition request; service rules permit only PENDING -> FAILED. */
     public record UpdatePaymentStatusRequest(@NotNull Payment.PaymentStatus status) {}
 
     /** Read representation intentionally excludes internal provider/security data and cannot mutate persistence state. */
+    /** Read-only API representation; callers cannot use it to set internal settlement state. */
     public record PaymentResponse(Long id, Long orderId, BigDecimal amount,
                                   Payment.PaymentStatus status, Instant createdAt) {
         static PaymentResponse from(Payment payment) {
@@ -117,6 +136,8 @@ public class PaymentController {
         }
     }
 
+    /** Stable public pagination contract independent of Spring Data serialization internals. */
+    /** Stable pagination envelope used by browser clients without exposing Spring Page implementation JSON. */
     public record PageResponse<T>(List<T> content, int number, int size, int totalPages, long totalElements) {
         static <T> PageResponse<T> from(Page<T> page) {
             return new PageResponse<>(page.getContent(), page.getNumber(), page.getSize(),

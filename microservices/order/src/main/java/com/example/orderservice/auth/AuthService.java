@@ -50,7 +50,14 @@ public class AuthService {
         this.issuer = issuer;
     }
 
-    /** Spring verifies the BCrypt hash first; the token then carries only subject, user ID, role, issuer, and expiry claims. */
+    /**
+     * Verifies credentials and issues a short-lived signed token containing subject, user ID, role, issuer, and expiry.
+     *
+     * @param username normalized before lookup; matching is case-insensitive
+     * @param password plaintext input used only for verification and never persisted
+     * @return token and safe account metadata for the login response
+     * @throws org.springframework.security.authentication.BadCredentialsException if credentials do not match
+     */
     public LoginResult login(String username, String password) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -76,7 +83,16 @@ public class AuthService {
         }
     }
 
-    /** New accounts are operators by default; only the ADMIN-protected controller endpoint can reach this provisioning path. */
+    /**
+     * Creates an operator account; callers must pass the ADMIN-protected controller authorization first.
+     * Passwords are encoded before persistence and never included in the returned summary.
+     *
+     * @param username requested login name; stored in normalized lowercase form
+     * @param password initial password meeting the application's length/BCrypt byte limit
+     * @return account metadata that excludes the password hash
+     * @throws DuplicateUsernameException if another account already owns the normalized name
+     * @throws WeakPasswordException if the password is outside accepted bounds
+     */
     @Transactional
     public UserSummary createOperator(String username, String password) {
         String normalizedUsername = username.trim().toLowerCase();
@@ -89,7 +105,11 @@ public class AuthService {
         return UserSummary.from(user);
     }
 
-    /** BCrypt accepts at most 72 UTF-8 bytes, so enforce both a useful minimum and its byte-level input limit. */
+    /**
+     * Enforces the application's minimum and BCrypt's maximum input size before hashing.
+     * @param password candidate plaintext password
+     * @throws WeakPasswordException if the password is shorter than 12 characters or exceeds 72 UTF-8 bytes
+     */
     public static void validatePassword(String password) {
         if (password == null || password.length() < 12
                 || password.getBytes(StandardCharsets.UTF_8).length > 72) {
@@ -97,13 +117,19 @@ public class AuthService {
         }
     }
 
+    /** Internal auth result used to build the public login DTO; contains no credential material. */
     public record LoginResult(String accessToken, Instant expiresAt, String username, UserRole role) {}
+
+    /** Safe account metadata for admin provisioning responses; password hash is deliberately excluded. */
     public record UserSummary(Long id, String username, UserRole role, Instant createdAt) {
         static UserSummary from(AppUser user) {
             return new UserSummary(user.getId(), user.getUsername(), user.getRole(), user.getCreatedAt());
         }
     }
 
+    /** Username uniqueness conflict mapped to HTTP 409. */
     public static class DuplicateUsernameException extends RuntimeException {}
+
+    /** Password does not meet the configured character/BCrypt byte limits; mapped to HTTP 400. */
     public static class WeakPasswordException extends RuntimeException {}
 }

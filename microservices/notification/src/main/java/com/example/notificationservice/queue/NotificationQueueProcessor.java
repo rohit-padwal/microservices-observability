@@ -46,6 +46,7 @@ public class NotificationQueueProcessor {
         meterRegistry.gauge("notification.processing.queue.size", queue, BlockingQueue::size);
     }
 
+    /** Enqueues validated delivery facts; the worker asynchronously persists SENT or FAILED. */
     public void enqueue(Long paymentId, Long orderId, BigDecimal amount, String type) {
         executor.submit(() -> process(paymentId, orderId, amount, type));
     }

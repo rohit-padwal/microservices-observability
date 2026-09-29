@@ -47,6 +47,14 @@ public class NotificationDispatcher {
         meterRegistry.gauge("notification.queue.size", queue, BlockingQueue::size);
     }
 
+    /**
+     * Queues a notification event and captures authorization before request context disappears on the worker thread.
+    * @param paymentId payment correlation identifier
+    * @param orderId order correlation identifier
+     * @param amount amount described by the event
+     * @param success selects PAYMENT_SUCCESS or PAYMENT_FAILED
+     * @param authorization signed bearer header to relay, when called for an authenticated request
+     */
     public void dispatchPaymentCompleted(Long paymentId, Long orderId, BigDecimal amount,
                                          boolean success, String authorization) {
         // Request context is lost on worker threads, so capture the signed token before enqueueing.

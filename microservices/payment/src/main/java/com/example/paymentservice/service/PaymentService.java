@@ -51,6 +51,8 @@ public class PaymentService {
      *   5. Fire-and-forget notification via the async queue
      * This is the "Gateway -> Payment -> Fraud -> Database -> Notification"
      * path that shows up as a single trace in Tempo.
+    * @param payment order ID and amount; requested status is ignored and reset to PENDING
+    * @return persisted COMPLETED or FAILED payment outcome
      */
     @Transactional
     public Payment processPayment(Payment payment) {
@@ -110,6 +112,12 @@ public class PaymentService {
         return null;
     }
 
+    /**
+     * Searches in SQL using optional filters and an allow-listed sort property.
+     * @param page zero-based index
+     * @param size requested size, clamped to 1..100
+     * @return matching payments and total-count metadata
+     */
     @Transactional(readOnly = true)
     public Page<Payment> searchPayments(Payment.PaymentStatus status, Long orderId,
                                         BigDecimal minimumAmount, BigDecimal maximumAmount,
@@ -121,12 +129,17 @@ public class PaymentService {
         return paymentRepository.search(status, orderId, minimumAmount, maximumAmount, pageable);
     }
 
+    /**
+     * @param id persisted payment key
+     * @return payment or PaymentNotFoundException for HTTP 404 mapping
+     */
     @Transactional(readOnly = true)
     public Payment getPaymentById(Long id) {
         return paymentRepository.findById(id)
                 .orElseThrow(() -> new PaymentNotFoundException(id));
     }
 
+    /** @return global state counts and completed amount, with an empty sum normalized to zero */
     @Transactional(readOnly = true)
     public PaymentStatistics getStatistics() {
         BigDecimal completedAmount = paymentRepository.sumAmountByStatus(Payment.PaymentStatus.COMPLETED);
@@ -137,6 +150,7 @@ public class PaymentService {
                 completedAmount == null ? BigDecimal.ZERO : completedAmount);
     }
 
+    /** Only PENDING may transition to FAILED; settled outcomes are retained as financial audit history. */
     @Transactional
     public Payment updateStatus(Long id, Payment.PaymentStatus status) {
         Payment payment = getPaymentById(id);
@@ -148,6 +162,7 @@ public class PaymentService {
         return paymentRepository.save(payment);
     }
 
+    /** Deletes an unsettled pending record only; terminal financial records cannot be removed. */
     @Transactional
     public void deletePendingPayment(Long id) {
         Payment payment = getPaymentById(id);
@@ -161,6 +176,7 @@ public class PaymentService {
     public record PaymentStatistics(long totalPayments, long pendingPayments, long completedPayments,
                                     long failedPayments, BigDecimal completedAmount) {}
 
+    /** Signals a disallowed mutation of a terminal financial record; REST advice returns HTTP 409. */
     public static class PaymentConflictException extends RuntimeException {
         public PaymentConflictException(String message) { super(message); }
     }

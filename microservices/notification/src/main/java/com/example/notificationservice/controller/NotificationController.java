@@ -40,6 +40,11 @@ public class NotificationController {
         this.notificationService = notificationService;
     }
 
+    /**
+     * Validates and enqueues delivery work without waiting for the simulated provider.
+     * @param request payment/order/amount and an allowed notification type
+     * @return {@code 202 Accepted}; the worker later persists SENT or FAILED
+     */
     @PostMapping
     public ResponseEntity<Void> requestNotification(@Valid @RequestBody NotificationRequest request) {
         // Queue work and answer immediately; delivery remains owned by the notification worker.
@@ -47,7 +52,13 @@ public class NotificationController {
         return ResponseEntity.accepted().build();
     }
 
-    /** Search stays database-paged; page is zero-based, size is at most 100, and sort fields are allow-listed. */
+    /**
+     * Searches persisted delivery records; filtering and pagination happen in the database.
+     * @param page zero-based page index
+     * @param size requested rows, bounded to 1..100
+     * @param sort allow-listed entity property
+     * @return stable page DTO with delivery records and total counts
+     */
     @GetMapping
     public PageResponse<NotificationResponse> search(
             @RequestParam(required = false) Notification.Status status,
@@ -65,6 +76,7 @@ public class NotificationController {
                 minimumAmount, maximumAmount, page, size, sort, direction).map(NotificationResponse::from));
     }
 
+    /** Returns global SENT/FAILED counts; available to ADMIN only. */
     @GetMapping("/statistics")
     public NotificationService.NotificationStatistics getStatistics() {
         return notificationService.getStatistics();
@@ -91,7 +103,7 @@ public class NotificationController {
                 page, size, "createdAt", Sort.Direction.DESC).map(NotificationResponse::from));
     }
 
-    /** Retry enqueues another attempt; it does not claim success or rewrite the previous delivery result. */
+    /** Enqueues a fresh attempt for a failed record; it does not rewrite the previous delivery result. */
     @PostMapping("/{id}/retry")
     public ResponseEntity<Void> retry(@PathVariable @Positive Long id) {
         Notification notification = notificationService.retry(id);
@@ -100,7 +112,7 @@ public class NotificationController {
         return ResponseEntity.accepted().build();
     }
 
-    /** Administrative correction is limited to failed records so sent delivery history remains immutable. */
+    /** Corrects metadata only while the prior delivery failed; successfully sent history is immutable. */
     @PutMapping("/{id}")
     public NotificationResponse correctFailed(@PathVariable @Positive Long id,
                                               @Valid @RequestBody CorrectNotificationRequest request) {
@@ -108,6 +120,7 @@ public class NotificationController {
                 request.orderId(), request.amount(), request.type()));
     }
 
+    /** Deletes an identified notification record; the security filter restricts this action to ADMIN. */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable @Positive Long id) {
         notificationService.delete(id);
@@ -121,12 +134,14 @@ public class NotificationController {
                                      @NotBlank @Size(max = 80)
                                      @Pattern(regexp = "PAYMENT_SUCCESS|PAYMENT_FAILED") String type) {}
 
+    /** Admin correction payload; the service rejects updates to records not in FAILED state. */
     public record CorrectNotificationRequest(@NotNull @Positive Long paymentId,
                                              @NotNull @Positive Long orderId,
                                              @NotNull @Positive BigDecimal amount,
                                              @NotBlank @Size(max = 80)
                                              @Pattern(regexp = "PAYMENT_SUCCESS|PAYMENT_FAILED") String type) {}
 
+    /** Read DTO; status and createdAt are worker/database-owned and cannot be set through request bodies. */
     public record NotificationResponse(Long id, Long paymentId, Long orderId, BigDecimal amount,
                                        String type, Notification.Status status, Instant createdAt) {
         static NotificationResponse from(Notification notification) {
@@ -137,6 +152,7 @@ public class NotificationController {
     }
 
     /** Keep page JSON stable across services instead of serializing Spring Data implementation details. */
+    /** Stable page envelope so clients are independent of Spring Data's internal serialization format. */
     public record PageResponse<T>(List<T> content, int number, int size, int totalPages, long totalElements) {
         static <T> PageResponse<T> from(Page<T> page) {
             return new PageResponse<>(page.getContent(), page.getNumber(), page.getSize(),

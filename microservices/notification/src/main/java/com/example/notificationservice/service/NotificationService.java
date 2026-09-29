@@ -29,10 +29,12 @@ public class NotificationService {
         this.notificationRepository = notificationRepository;
     }
 
+    /** Passes validated event facts to the bounded worker queue; delivery runs after the HTTP response. */
     public void enqueue(Long paymentId, Long orderId, BigDecimal amount, String type) {
         queueProcessor.enqueue(paymentId, orderId, amount, type);
     }
 
+    /** Runs optional filters and bounded page selection in SQL; arbitrary sort properties are rejected. */
     @Transactional(readOnly = true)
     public Page<Notification> search(Notification.Status status, Long paymentId, Long orderId, String type,
                                      BigDecimal minimumAmount, BigDecimal maximumAmount,
@@ -46,11 +48,16 @@ public class NotificationService {
                 minimumAmount, maximumAmount, pageable);
     }
 
+    /**
+     * @param id persisted notification key
+     * @return record or NotificationNotFoundException for HTTP 404 mapping
+     */
     @Transactional(readOnly = true)
     public Notification getById(Long id) {
         return notificationRepository.findById(id).orElseThrow(() -> new NotificationNotFoundException(id));
     }
 
+    /** Requires FAILED state and returns the original event facts used to enqueue a new attempt. */
     @Transactional(readOnly = true)
     public Notification retry(Long id) {
         Notification notification = getById(id);
@@ -75,6 +82,7 @@ public class NotificationService {
         return notificationRepository.save(notification);
     }
 
+    /** @return global SENT/FAILED counts, independent of any list page */
     @Transactional(readOnly = true)
     public NotificationStatistics getStatistics() {
         return new NotificationStatistics(notificationRepository.count(),
@@ -82,6 +90,7 @@ public class NotificationService {
                 notificationRepository.countByStatus(Notification.Status.FAILED));
     }
 
+    /** Deletes an identified record; controller security restricts this destructive operation to ADMIN. */
     @Transactional
     public void delete(Long id) {
         notificationRepository.delete(getById(id));
@@ -91,6 +100,7 @@ public class NotificationService {
         public NotificationNotFoundException(Long id) { super("Notification not found: " + id); }
     }
 
+    /** Signals a disallowed delivery-state mutation; REST advice returns HTTP 409. */
     public static class NotificationConflictException extends RuntimeException {
         public NotificationConflictException(String message) { super(message); }
     }

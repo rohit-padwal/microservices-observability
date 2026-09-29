@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 
+/** Configures observed, timeout-bounded clients for synchronous Fraud calls and Notification dispatch. */
 @Configuration
 public class RestClientConfig {
 

@@ -1,8 +1,13 @@
 import { createAsyncThunk, createSelector, createSlice } from '@reduxjs/toolkit';
 import { getAccessToken } from '../../auth/accessToken.js';
 
+/**
+ * Sends a same-origin request with the in-memory bearer token and parses JSON, empty 204s, and API errors.
+ * @param {string} path Gateway-relative API path
+ * @param {RequestInit} [options] Fetch method, body, or abort signal
+ * @returns {Promise<unknown>} Parsed response payload, or null for 204
+ */
 async function apiRequest(path, options = {}) {
-  // Centralize JSON headers and the in-memory bearer token so every protected thunk uses the same auth behavior.
   const headers = {
     Accept: 'application/json',
     ...(options.body ? { 'Content-Type': 'application/json' } : {}),
@@ -30,6 +35,11 @@ async function apiRequest(path, options = {}) {
   return body;
 }
 
+/**
+ * Loads one server-side page of orders.
+ * @param {Record<string, string|number|undefined>} query Filter and page/sort parameters
+ * @returns {Promise<object>} Page DTO with content and total-page metadata
+ */
 export const fetchOrders = createAsyncThunk('orders/fetchAll', async (query, { signal, rejectWithValue }) => {
   try {
     // Let the database filter/page the result instead of downloading every order into the browser.
@@ -43,6 +53,7 @@ export const fetchOrders = createAsyncThunk('orders/fetchAll', async (query, { s
   }
 });
 
+/** @returns {Promise<object>} Global order counts and paid volume, independent of the selected list page. */
 export const fetchOrderStatistics = createAsyncThunk('orders/fetchStatistics', async (_, { signal, rejectWithValue }) => {
   try {
     return await apiRequest('/api/orders/statistics', { signal });
@@ -51,6 +62,10 @@ export const fetchOrderStatistics = createAsyncThunk('orders/fetchStatistics', a
   }
 });
 
+/**
+ * Creates an order from form fields; server-owned ID/status/payment outcome are not accepted from the client.
+ * @param {{userId: number, itemName: string, quantity: number, totalAmount: number}} order Validated form payload
+ */
 export const createOrder = createAsyncThunk('orders/create', async (order, { rejectWithValue }) => {
   try {
     return await apiRequest('/api/orders', {
@@ -62,6 +77,10 @@ export const createOrder = createAsyncThunk('orders/create', async (order, { rej
   }
 });
 
+/**
+ * Requests cancellation; server RBAC and state rules remain authoritative even if the UI exposes the action.
+ * @param {number} id Persisted order ID
+ */
 export const cancelOrder = createAsyncThunk('orders/cancel', async (id, { rejectWithValue }) => {
   try {
     // The server permits this transition only to ADMIN; UI visibility never grants mutation permission.
@@ -76,6 +95,7 @@ export const cancelOrder = createAsyncThunk('orders/cancel', async (id, { reject
 });
 
 // This slice owns server state and request lifecycle flags; components dispatch thunks instead of calling fetch directly.
+/** Shared server state for order pages, summary metrics, pending requests, and user-visible errors. */
 const ordersSlice = createSlice({
   name: 'orders',
   initialState: {
@@ -151,5 +171,7 @@ export const { dismissSaveError } = ordersSlice.actions;
 
 const selectOrderState = (state) => state.orders;
 // Memoized selectors keep component reads stable when unrelated store fields change.
+/** Selects the current server page of order response DTOs. */
 export const selectOrders = createSelector(selectOrderState, (orders) => orders.items);
+/** Selects unfiltered global metrics for the dashboard summary. */
 export const selectOrderStatistics = createSelector(selectOrderState, (orders) => orders.statistics);

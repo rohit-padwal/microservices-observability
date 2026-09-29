@@ -3,6 +3,7 @@ import { ArrowRight, LockKeyhole } from 'lucide-react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
+/** Authenticates against Order Service and returns the operator to the route that required login. */
 export default function LoginPage() {
   const { isAuthenticated, signIn } = useAuth();
   const location = useLocation();
@@ -15,6 +16,7 @@ export default function LoginPage() {
   if (isAuthenticated) return <Navigate to="/" replace />;
 
   // Keep credentials in component state only; AuthContext sends them to the backend and never persists them.
+  /** Handles local empty-input feedback and server-side credential errors before navigation. */
   async function handleSubmit(event) {
     event.preventDefault();
     if (!username.trim() || !password) {

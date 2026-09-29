@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
-// This improves navigation UX; backend filters repeat authentication and authorization for every API request.
+/** Redirects anonymous users and blocks users without OPERATOR/ADMIN; API filters enforce the same rules server-side. */
 export default function ProtectedRoute() {
   const { isAuthenticated, roles, signOut } = useAuth();
   const location = useLocation();

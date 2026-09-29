@@ -85,6 +85,7 @@ public class SecurityConfig {
         return new NimbusJwtEncoder(new ImmutableSecret<SecurityContext>(jwtSigningKey));
     }
 
+    /** Rejects bad signatures, wrong issuer, and invalid time claims before a controller sees the token. */
     @Bean
     JwtDecoder jwtDecoder(SecretKey jwtSigningKey) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSigningKey)
@@ -96,6 +97,7 @@ public class SecurityConfig {
         return decoder;
     }
 
+    /** Converts the JWT `roles` claim (for example ADMIN) into Spring's ROLE_ADMIN authority convention. */
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
         // JWT roles are plain values such as ADMIN; Spring's hasRole checks expect ROLE_ADMIN authorities.
@@ -107,6 +109,7 @@ public class SecurityConfig {
         return converter;
     }
 
+    /** Configures public login/health paths and role requirements; unlisted application routes require a valid token. */
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {

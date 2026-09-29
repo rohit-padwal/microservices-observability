@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 /** Database boundary for bounded fraud-check search and risk-decision aggregates. */
 public interface FraudCheckRepository extends JpaRepository<FraudCheck, Long> {
 
+        /** Optional decision, relationship, and amount predicates execute before database paging/counting. */
         @Query("""
                         select f from FraudCheck f
                         where (:decision is null or f.decision = :decision)
