@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
+/** Makes Payment Service a stateless JWT resource server and centralizes its ADMIN/OPERATOR endpoint policy. */
 @Configuration
 public class SecurityConfig {
 
@@ -35,6 +36,7 @@ public class SecurityConfig {
     JwtDecoder jwtDecoder(SecretKey jwtSigningKey) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSigningKey)
                 .macAlgorithm(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256).build();
+        // Signature, timestamp, and issuer checks run before an API controller receives the request.
         OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(ISSUER);
         decoder.setJwtValidator(validator);
         return decoder;
@@ -42,6 +44,7 @@ public class SecurityConfig {
 
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
+        // Convert token role strings into Spring authorities consumed by hasRole/hasAnyRole.
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName("roles");
         authorities.setAuthorityPrefix("ROLE_");
@@ -53,6 +56,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
+        // Operators can read/process payments; only admins can inspect aggregates or mutate/delete records.
         return http.csrf(csrf -> csrf.disable())
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())

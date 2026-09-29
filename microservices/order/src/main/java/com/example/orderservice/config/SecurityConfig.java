@@ -32,6 +32,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.proc.SecurityContext;
 
+/** Configures stateless bearer authentication. The resource-server filter decodes JWTs before controllers run. */
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
@@ -40,11 +41,13 @@ public class SecurityConfig {
 
     @Bean
     PasswordEncoder passwordEncoder() {
+        // BCrypt salts each hash and makes offline guessing deliberately expensive; store only its encoded output.
         return new BCryptPasswordEncoder(12);
     }
 
     @Bean
     UserDetailsService userDetailsService(com.example.orderservice.auth.AppUserRepository users) {
+        // AuthenticationManager uses this lookup and the Dao provider below to verify a submitted password hash.
         return username -> users.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
@@ -87,6 +90,7 @@ public class SecurityConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSigningKey)
                 .macAlgorithm(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256)
                 .build();
+        // Default validators check exp/nbf; the issuer validator prevents tokens from another authority being accepted.
         OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(ISSUER);
         decoder.setJwtValidator(validator);
         return decoder;
@@ -94,6 +98,7 @@ public class SecurityConfig {
 
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
+        // JWT roles are plain values such as ADMIN; Spring's hasRole checks expect ROLE_ADMIN authorities.
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName("roles");
         authorities.setAuthorityPrefix("ROLE_");
@@ -105,6 +110,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
+        // 401 means no valid identity; 403 means a valid token lacks the role required by the matched endpoint.
         return http
                 .csrf(csrf -> csrf.disable())
                 .httpBasic(basic -> basic.disable())

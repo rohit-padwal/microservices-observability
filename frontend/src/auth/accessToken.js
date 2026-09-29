@@ -1,3 +1,4 @@
+// Memory-only storage avoids leaving a reusable bearer token in persistent browser storage.
 let accessToken = null;
 
 export function getAccessToken() {

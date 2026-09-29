@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.Map;
 
+/** Maps missing checks, invalid request data, review conflicts, and unexpected failures into JSON responses. */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -38,6 +39,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        // Detailed causes remain in server logs; a client cannot use errors to inspect persistence internals.
         log.error("Unhandled exception", ex);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred");
         }

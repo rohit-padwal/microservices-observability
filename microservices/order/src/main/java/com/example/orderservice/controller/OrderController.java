@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+/** Translates validated HTTP DTOs into order-service operations and maps results back to stable response DTOs. */
 @RestController
 @Validated
 @RequestMapping("/api/orders")
@@ -41,6 +42,7 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.from(orderService.createOrder(order)));
     }
 
+    /** page is zero-based, size is capped at 100, and sort is allow-listed to prevent arbitrary entity-property queries. */
     @GetMapping
     public PageResponse<OrderResponse> searchOrders(
             @RequestParam(required = false) Order.OrderStatus status,
@@ -79,6 +81,7 @@ public class OrderController {
         return OrderResponse.from(orderService.updateStatus(id, request.status()));
     }
 
+    /** Client-owned order fields only; IDs, status, and timestamps remain controlled by the service/database. */
     public record CreateOrderRequest(
             @jakarta.validation.constraints.NotNull @Positive Long userId,
             @jakarta.validation.constraints.NotBlank @Size(max = 255) String itemName,
@@ -87,8 +90,10 @@ public class OrderController {
 
     public record UpdateOrderStatusRequest(@jakarta.validation.constraints.NotNull Order.OrderStatus status) {}
 
+    /** Stable page shape prevents the frontend from depending on Spring Data's internal Page JSON representation. */
     public record PageResponse<T>(List<T> content, int number, int size, int totalPages, long totalElements) {}
 
+    /** Read DTO exposes persisted order data without allowing an input payload to overwrite it. */
     public record OrderResponse(Long id, Long userId, String itemName, Integer quantity,
                                  BigDecimal totalAmount, Order.OrderStatus status, Instant createdAt) {
         static OrderResponse from(Order order) {

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.Map;
 
+/** Converts binding, validation, domain, and unexpected failures into a consistent JSON error contract. */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -23,6 +24,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<Map<String, Object>> handleAuthentication(AuthenticationException ex) {
+        // Do not reveal whether the username exists; login failures share one 401 response.
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(body(401, "Unauthorized", "Invalid username or password"));
     }

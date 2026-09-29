@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/** Delivery record owned by Notification Service; related IDs are references, not cross-service JPA relations. */
 @Entity
 @Table(name = "notifications", indexes = {
     @Index(name = "idx_notifications_order_created_at", columnList = "order_id, created_at"),

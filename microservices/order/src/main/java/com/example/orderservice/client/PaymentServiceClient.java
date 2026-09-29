@@ -8,6 +8,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 
+/** Isolates the order workflow from Payment Service's HTTP transport and response contract. */
 @Component
 public class PaymentServiceClient {
 

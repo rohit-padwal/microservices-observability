@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+/** Orchestrates payment persistence, synchronous fraud decisions, simulated settlement, and queued notifications. */
 @Service
 public class PaymentService {
 
@@ -66,6 +67,7 @@ public class PaymentService {
             boolean declined;
             String declineReason = null;
 
+            // Fraud failures are fail-closed: do not settle when screening is unavailable or declines the request.
             if (!fraudResult.approved()) {
                 declined = true;
                 declineReason = "FRAUD_" + fraudResult.decision();
@@ -100,6 +102,7 @@ public class PaymentService {
         }
     }
 
+    /** Capture auth before queueing because worker threads do not inherit the servlet request context. */
     private String currentAuthorizationHeader() {
         if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
             return attributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
@@ -111,6 +114,7 @@ public class PaymentService {
     public Page<Payment> searchPayments(Payment.PaymentStatus status, Long orderId,
                                         BigDecimal minimumAmount, BigDecimal maximumAmount,
                                         int page, int size, String sortField, Sort.Direction direction) {
+        // Cap page size and restrict sort properties so HTTP input never becomes arbitrary JPA sort metadata.
         if (!SORT_FIELDS.contains(sortField)) throw new IllegalArgumentException("Unsupported payment sort field");
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
                 Sort.by(direction, sortField));
@@ -136,6 +140,7 @@ public class PaymentService {
     @Transactional
     public Payment updateStatus(Long id, Payment.PaymentStatus status) {
         Payment payment = getPaymentById(id);
+        // Settled money is audit data: the only administrative transition allowed is pending -> failed.
         if (payment.getStatus() != Payment.PaymentStatus.PENDING || status != Payment.PaymentStatus.FAILED) {
             throw new PaymentConflictException("Only pending payments may be administratively marked failed");
         }
@@ -146,6 +151,7 @@ public class PaymentService {
     @Transactional
     public void deletePendingPayment(Long id) {
         Payment payment = getPaymentById(id);
+        // Preserve completed/failed financial history; deletion is limited to an unsettled record.
         if (payment.getStatus() != Payment.PaymentStatus.PENDING) {
             throw new PaymentConflictException("Completed payment records cannot be deleted");
         }

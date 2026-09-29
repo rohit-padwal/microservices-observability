@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 
+/** SQL/JPA query boundary for bounded payment search and aggregate reporting. */
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
         @Query("""

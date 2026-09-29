@@ -194,6 +194,7 @@ to Alertmanager, which routes to Slack and/or email based on severity.
 
 ## Developer Checks
 
+- [Developer Guide](docs/DEVELOPER_GUIDE.md)
 - [Project Architecture and Trade-offs](docs/PROJECT_ARCHITECTURE.md)
 - [HTTP API Reference](docs/API.md)
 

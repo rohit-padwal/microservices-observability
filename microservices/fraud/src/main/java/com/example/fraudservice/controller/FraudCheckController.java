@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.util.List;
 
+/** Exposes risk evaluations and bounded review/search APIs without exposing persistence entities directly. */
 @RestController
 @Validated
 @RequestMapping("/api/fraud-checks")
@@ -35,6 +36,7 @@ public class FraudCheckController {
         return ResponseEntity.status(HttpStatus.OK).body(FraudCheckResponse.from(check));
     }
 
+    /** Filters are applied in SQL; page is zero-based, size is bounded, and sort is restricted to known fields. */
     @GetMapping
     public PageResponse<FraudCheckResponse> search(
             @RequestParam(required = false) FraudCheck.Decision decision,
@@ -89,12 +91,14 @@ public class FraudCheckController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Only payment/order facts enter the risk engine; clients cannot submit the resulting decision or score. */
     public record FraudCheckRequest(@NotNull @Positive Long orderId,
                                     @NotNull @Positive Long paymentId,
                                     @NotNull @Positive BigDecimal amount) {}
 
     public record ResolveFraudReviewRequest(@NotNull FraudCheck.Decision decision) {}
 
+    /** Stable read DTO for the audit result produced by the fraud service. */
     public record FraudCheckResponse(Long id, Long orderId, Long paymentId, BigDecimal amount,
                                      String decision, double riskScore, java.time.Instant createdAt) {
         static FraudCheckResponse from(FraudCheck check) {

@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+/** Payment HTTP boundary; request DTOs prevent client control of provider-owned state and response DTOs hide entities. */
 @RestController
 @Validated
 @RequestMapping("/api/payments")
@@ -38,6 +39,7 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
+    /** Runs fraud screening and settlement; 402 represents a business decline, not malformed input. */
     @PostMapping
     public ResponseEntity<PaymentResponse> processPayment(@Valid @RequestBody CreatePaymentRequest request) {
         Payment payment = new Payment();
@@ -50,6 +52,7 @@ public class PaymentController {
         return ResponseEntity.status(status).body(PaymentResponse.from(result));
     }
 
+    /** Page indexes start at zero, page size is capped at 100, and sort names are allow-listed. */
     @GetMapping
     public PageResponse<PaymentResponse> searchPayments(
             @RequestParam(required = false) Payment.PaymentStatus status,
@@ -99,11 +102,13 @@ public class PaymentController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Only the owning order and positive amount come from the caller; Payment Service chooses payment status. */
     public record CreatePaymentRequest(@NotNull @Positive Long orderId,
                                        @NotNull @Positive BigDecimal amount) {}
 
     public record UpdatePaymentStatusRequest(@NotNull Payment.PaymentStatus status) {}
 
+    /** Read representation intentionally excludes internal provider/security data and cannot mutate persistence state. */
     public record PaymentResponse(Long id, Long orderId, BigDecimal amount,
                                   Payment.PaymentStatus status, Instant createdAt) {
         static PaymentResponse from(Payment payment) {

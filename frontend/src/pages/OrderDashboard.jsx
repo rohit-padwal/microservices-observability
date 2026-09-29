@@ -7,6 +7,7 @@ import OrderList from '../components/OrderList.jsx';
 
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
+// Coordinates server-backed order state; inputs stay local while shared records and request states live in Redux.
 export default function OrderDashboard() {
   const dispatch = useDispatch();
   const { items, statistics, page, size, totalElements, totalPages, status, error, saving, saveError, cancellingIds } = useSelector((state) => state.orders);
@@ -34,6 +35,7 @@ export default function OrderDashboard() {
   }, [dispatch, currentQuery]);
 
   useEffect(() => {
+    // Keep global totals independent of the current filter/page so summary values always describe all orders.
     const request = dispatch(fetchOrderStatistics());
     return () => request.abort();
   }, [dispatch]);

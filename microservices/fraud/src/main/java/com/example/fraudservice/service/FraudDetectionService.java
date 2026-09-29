@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
+/** Owns the demo risk model, persisted fraud decisions, and the narrow manual-review lifecycle. */
 @Service
 public class FraudDetectionService {
 
@@ -86,6 +87,7 @@ public class FraudDetectionService {
     public Page<FraudCheck> search(FraudCheck.Decision decision, Long orderId, Long paymentId,
                                    BigDecimal minimumAmount, BigDecimal maximumAmount,
                                    int page, int size, String sortField, Sort.Direction direction) {
+        // Prevent arbitrary property sorting and unbounded result loads from public query parameters.
         if (!SORT_FIELDS.contains(sortField)) throw new IllegalArgumentException("Unsupported fraud-check sort field");
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
                 Sort.by(direction, sortField));
@@ -109,6 +111,7 @@ public class FraudDetectionService {
     @Transactional
     public FraudCheck resolveReview(Long id, FraudCheck.Decision decision) {
         FraudCheck check = getById(id);
+        // A human may resolve REVIEW, but approved/declined decisions are immutable audit outcomes.
         if (check.getDecision() != FraudCheck.Decision.REVIEW || decision == FraudCheck.Decision.REVIEW) {
             throw new FraudConflictException("Only review decisions can be resolved to APPROVE or DECLINE");
         }

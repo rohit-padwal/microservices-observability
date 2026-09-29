@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
+/** Order Service's persisted identity record. Only a BCrypt hash is stored; UserDetails adapts its role for Spring authentication. */
 @Entity
 @Table(name = "app_users")
 public class AppUser implements UserDetails {

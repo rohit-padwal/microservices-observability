@@ -33,8 +33,8 @@ flowchart LR
 ## Request Flows
 
 1. The operator signs in through `POST /api/auth/login`; Order Service verifies
-  the BCrypt hash and signs a short-lived HS256 JWT. The React dashboard keeps
-  it in memory and Redux thunks attach it as a bearer token.
+   the BCrypt hash and signs a short-lived HS256 JWT. The React dashboard keeps
+   it in memory and Redux thunks attach it as a bearer token.
 2. The React dashboard dispatches Redux Toolkit thunks to `GET /api/orders`,
    `GET /api/orders/statistics`, `POST /api/orders`, or the cancellation route.
 3. NGINX forwards the request to Order Service. Its resource-server filter
@@ -44,13 +44,13 @@ flowchart LR
   transaction, forwarding the signed bearer token. The payment result
   determines `PAID` or `PAYMENT_FAILED`.
 4. Payment Service calls Fraud Service synchronously because it needs a verdict;
-  the bearer token is forwarded again.
-   Notifications are enqueued and processed asynchronously so notification work
-  does not hold up the payment response. The authorization header is captured
-  at enqueue time and relayed by the worker to Notification Service.
+  the bearer token is forwarded again. Notifications are enqueued and processed
+  asynchronously so notification work does not hold up the payment response.
+  The authorization header is captured at enqueue time and relayed by the
+  worker to Notification Service.
 5. Micrometer tracing propagates trace context over HTTP; services export spans
-   to the OTel Collector. Metrics flow through Prometheus and logs through the
-   collector to VictoriaLogs. Grafana dashboards consume the telemetry stores.
+  to the OTel Collector. Metrics flow through Prometheus and logs through the
+  collector to VictoriaLogs. Grafana dashboards consume the telemetry stores.
 
 ## Data and API Design
 

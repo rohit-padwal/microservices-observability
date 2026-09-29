@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Seeds the first administrator from environment-backed secrets, once; normal account creation uses the authenticated API. */
 @Component
 public class AdminBootstrap implements ApplicationRunner {
 
@@ -32,6 +33,7 @@ public class AdminBootstrap implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        // An existing username is left untouched so restarting the service never resets an admin's password.
         if (username.isBlank() && password.isBlank()) {
             log.warn("No bootstrap administrator configured; create one through an out-of-band database provisioning process");
             return;

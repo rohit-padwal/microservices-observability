@@ -2,6 +2,7 @@ import { createAsyncThunk, createSelector, createSlice } from '@reduxjs/toolkit'
 import { getAccessToken } from '../../auth/accessToken.js';
 
 async function apiRequest(path, options = {}) {
+  // Centralize JSON headers and the in-memory bearer token so every protected thunk uses the same auth behavior.
   const headers = {
     Accept: 'application/json',
     ...(options.body ? { 'Content-Type': 'application/json' } : {}),
@@ -63,6 +64,7 @@ export const createOrder = createAsyncThunk('orders/create', async (order, { rej
 
 export const cancelOrder = createAsyncThunk('orders/cancel', async (id, { rejectWithValue }) => {
   try {
+    // The server permits this transition only to ADMIN; UI visibility never grants mutation permission.
     await apiRequest(`/api/orders/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status: 'CANCELLED' }),
@@ -73,6 +75,7 @@ export const cancelOrder = createAsyncThunk('orders/cancel', async (id, { reject
   }
 });
 
+// This slice owns server state and request lifecycle flags; components dispatch thunks instead of calling fetch directly.
 const ordersSlice = createSlice({
   name: 'orders',
   initialState: {
@@ -94,6 +97,7 @@ const ordersSlice = createSlice({
     },
   },
   extraReducers(builder) {
+    // Each async thunk drives explicit loading/success/error transitions so the UI can render retryable states.
     builder
       .addCase(fetchOrders.pending, (state) => {
         state.status = 'loading';

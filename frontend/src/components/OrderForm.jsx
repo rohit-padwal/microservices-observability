@@ -3,6 +3,7 @@ import { Plus, RotateCcw } from 'lucide-react';
 
 const initialFields = { userId: '1048', itemName: '', quantity: '1', totalAmount: '' };
 
+// Owns transient draft/validation state and delegates the persisted create action to its parent.
 export default function OrderForm({ onCreate, saving }) {
   // React owns these controlled fields; the PO note demonstrates reading a DOM-owned value through a ref.
   const [fields, setFields] = useState(initialFields);
@@ -17,6 +18,7 @@ export default function OrderForm({ onCreate, saving }) {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    // Give fast feedback here, but OrderController repeats these constraints because browser input is untrusted.
     const userId = Number(fields.userId);
     const quantity = Number(fields.quantity);
     const totalAmount = Number(fields.totalAmount);

@@ -14,6 +14,7 @@ export default function LoginPage() {
 
   if (isAuthenticated) return <Navigate to="/" replace />;
 
+  // Keep credentials in component state only; AuthContext sends them to the backend and never persists them.
   async function handleSubmit(event) {
     event.preventDefault();
     if (!username.trim() || !password) {

@@ -40,6 +40,7 @@ public class RestClientConfig {
     }
 
     private ClientHttpRequestInterceptor bearerTokenRelay() {
+        // Preserve user identity across synchronous Payment -> Fraud calls; Boot still adds tracing/metrics.
         return (request, body, execution) -> {
             if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
                 String authorization = attributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);

@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
+/** Owns credential verification and token issuance; controllers stay focused on HTTP input/output contracts. */
 @Service
 public class AuthService {
 
@@ -49,6 +50,7 @@ public class AuthService {
         this.issuer = issuer;
     }
 
+    /** Spring verifies the BCrypt hash first; the token then carries only subject, user ID, role, issuer, and expiry claims. */
     public LoginResult login(String username, String password) {
         try {
             Authentication authentication = authenticationManager.authenticate(
@@ -74,6 +76,7 @@ public class AuthService {
         }
     }
 
+    /** New accounts are operators by default; only the ADMIN-protected controller endpoint can reach this provisioning path. */
     @Transactional
     public UserSummary createOperator(String username, String password) {
         String normalizedUsername = username.trim().toLowerCase();
@@ -86,6 +89,7 @@ public class AuthService {
         return UserSummary.from(user);
     }
 
+    /** BCrypt accepts at most 72 UTF-8 bytes, so enforce both a useful minimum and its byte-level input limit. */
     public static void validatePassword(String password) {
         if (password == null || password.length() < 12
                 || password.getBytes(StandardCharsets.UTF_8).length > 72) {

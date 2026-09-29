@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 
+/** Adapts the payment workflow to Fraud Service's API and fails closed when a verdict cannot be trusted. */
 @Component
 public class FraudServiceClient {
 

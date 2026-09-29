@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/** Payment-owned financial record; order_id is a cross-service identifier, not a cross-database JPA relation. */
 @Entity
 @Table(name = "payments", indexes = {
     @Index(name = "idx_payments_status_created_at", columnList = "status, created_at"),

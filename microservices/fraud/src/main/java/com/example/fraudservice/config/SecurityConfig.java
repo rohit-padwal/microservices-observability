@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtGra
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
+/** Validates the same signed access token as Order and applies role checks to the fraud API. */
 @Configuration
 public class SecurityConfig {
 
@@ -35,6 +36,7 @@ public class SecurityConfig {
     JwtDecoder jwtDecoder(SecretKey jwtSigningKey) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSigningKey)
                 .macAlgorithm(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256).build();
+        // A valid signature alone is insufficient: issuer and normal time claims must also match.
         OAuth2TokenValidator<Jwt> validator = JwtValidators.createDefaultWithIssuer(ISSUER);
         decoder.setJwtValidator(validator);
         return decoder;
@@ -42,6 +44,7 @@ public class SecurityConfig {
 
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
+        // Map the JWT's roles claim to Spring's ROLE_* authorities used by the filter rules below.
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName("roles");
         authorities.setAuthorityPrefix("ROLE_");
@@ -53,6 +56,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
                                             JwtAuthenticationConverter jwtAuthenticationConverter) throws Exception {
+        // Operators may screen/read checks; resolving a human review is an ADMIN-only action.
         return http.csrf(csrf -> csrf.disable())
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())

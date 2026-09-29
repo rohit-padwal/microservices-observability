@@ -33,6 +33,7 @@ public class RestClientConfig {
                 .build();
     }
 
+    /** Relay the authenticated caller to Payment so downstream role checks see the same principal. */
     private ClientHttpRequestInterceptor bearerTokenRelay() {
         return (request, body, execution) -> {
             if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {

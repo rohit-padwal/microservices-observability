@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+/** HTTP boundary for enqueueing notifications and querying delivery records owned by the worker. */
 @RestController
 @Validated
 @RequestMapping("/api/notifications")
@@ -46,6 +47,7 @@ public class NotificationController {
         return ResponseEntity.accepted().build();
     }
 
+    /** Search stays database-paged; page is zero-based, size is at most 100, and sort fields are allow-listed. */
     @GetMapping
     public PageResponse<NotificationResponse> search(
             @RequestParam(required = false) Notification.Status status,
@@ -89,6 +91,7 @@ public class NotificationController {
                 page, size, "createdAt", Sort.Direction.DESC).map(NotificationResponse::from));
     }
 
+    /** Retry enqueues another attempt; it does not claim success or rewrite the previous delivery result. */
     @PostMapping("/{id}/retry")
     public ResponseEntity<Void> retry(@PathVariable @Positive Long id) {
         Notification notification = notificationService.retry(id);
@@ -97,6 +100,7 @@ public class NotificationController {
         return ResponseEntity.accepted().build();
     }
 
+    /** Administrative correction is limited to failed records so sent delivery history remains immutable. */
     @PutMapping("/{id}")
     public NotificationResponse correctFailed(@PathVariable @Positive Long id,
                                               @Valid @RequestBody CorrectNotificationRequest request) {
@@ -110,6 +114,7 @@ public class NotificationController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Accepted event shape; the worker, not the API caller, supplies the eventual SENT/FAILED state. */
     public record NotificationRequest(@NotNull @Positive Long paymentId,
                                      @NotNull @Positive Long orderId,
                                      @NotNull @Positive BigDecimal amount,
@@ -131,6 +136,7 @@ public class NotificationController {
         }
     }
 
+    /** Keep page JSON stable across services instead of serializing Spring Data implementation details. */
     public record PageResponse<T>(List<T> content, int number, int size, int totalPages, long totalElements) {
         static <T> PageResponse<T> from(Page<T> page) {
             return new PageResponse<>(page.getContent(), page.getNumber(), page.getSize(),

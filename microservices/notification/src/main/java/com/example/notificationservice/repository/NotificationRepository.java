@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 
+/** Database boundary for pageable delivery searches and status counts. */
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
         @Query("""

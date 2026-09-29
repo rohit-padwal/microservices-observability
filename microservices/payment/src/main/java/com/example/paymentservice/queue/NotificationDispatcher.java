@@ -55,6 +55,7 @@ public class NotificationDispatcher {
 
     private void send(Long paymentId, Long orderId, BigDecimal amount, boolean success, String authorization) {
         try {
+            // Forward the captured user token so Notification Service can apply its own role checks on the worker call.
             var request = notificationServiceClient.post()
                     .uri("/api/notifications")
                     .body(new NotificationRequest(

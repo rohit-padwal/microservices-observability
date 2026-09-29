@@ -3,9 +3,11 @@ import { getAccessToken, setAccessToken } from '../auth/accessToken.js';
 
 const AuthContext = createContext(null);
 
+// Share session metadata across routes while keeping the bearer token in the separate in-memory module.
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
 
+  // Credentials go only to Order Service; neither password nor access token is written to web storage.
   const signIn = useCallback(async (username, password) => {
     const response = await fetch('/api/auth/login', {
       method: 'POST',
@@ -32,6 +34,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // A protected API's 401 means the server rejected this token, so clear the UI session immediately.
     function handleUnauthorized() {
       signOut();
     }
@@ -40,6 +43,7 @@ export function AuthProvider({ children }) {
   }, [signOut]);
 
   useEffect(() => {
+    // Sign out at expiry even if an idle user makes no further request to trigger a server 401.
     if (!session?.expiresAt) return undefined;
     const remaining = Date.parse(session.expiresAt) - Date.now();
     if (remaining <= 0) {

@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 
+/** Database boundary for bounded fraud-check search and risk-decision aggregates. */
 public interface FraudCheckRepository extends JpaRepository<FraudCheck, Long> {
 
         @Query("""

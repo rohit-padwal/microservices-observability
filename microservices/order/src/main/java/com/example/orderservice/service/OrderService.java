@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Set;
 
+/** Owns order persistence and the synchronous order-to-payment business workflow. */
 @Service
 public class OrderService {
 
@@ -71,6 +72,7 @@ public class OrderService {
         }
     }
 
+    /** Normalize optional filters and keep list reads bounded; never let caller-provided sort names reach JPA unchecked. */
     @Transactional(readOnly = true)
     public Page<Order> searchOrders(Order.OrderStatus status, Long userId, String itemName,
                                     int page, int size, String sortField, Sort.Direction direction) {
@@ -84,6 +86,7 @@ public class OrderService {
         return orderRepository.search(status, userId, normalizedItemName, pageable);
     }
 
+    /** Aggregate across the full table in SQL so dashboard totals do not depend on the currently visible page. */
     @Transactional(readOnly = true)
     public OrderStatistics getStatistics() {
         BigDecimal paidVolume = orderRepository.sumAmountByStatus(Order.OrderStatus.PAID);
@@ -108,6 +111,7 @@ public class OrderService {
 
     @Transactional
     public Order updateStatus(Long id, Order.OrderStatus status) {
+        // Payment owns PAID/PAYMENT_FAILED; Order exposes only the customer cancellation transition here.
         if (status != Order.OrderStatus.CANCELLED) {
             throw new IllegalArgumentException("Order status can only be changed to CANCELLED through this API");
         }

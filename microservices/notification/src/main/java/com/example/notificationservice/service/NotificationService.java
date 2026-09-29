@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Set;
 
+/** Separates notification persistence/search from the bounded asynchronous delivery queue. */
 @Service
 public class NotificationService {
 
@@ -36,6 +37,7 @@ public class NotificationService {
     public Page<Notification> search(Notification.Status status, Long paymentId, Long orderId, String type,
                                      BigDecimal minimumAmount, BigDecimal maximumAmount,
                                      int page, int size, String sortField, Sort.Direction direction) {
+        // Clamp reads and validate sort metadata before passing it to Spring Data.
         if (!SORT_FIELDS.contains(sortField)) throw new IllegalArgumentException("Unsupported notification sort field");
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
                 Sort.by(direction, sortField));
@@ -52,6 +54,7 @@ public class NotificationService {
     @Transactional(readOnly = true)
     public Notification retry(Long id) {
         Notification notification = getById(id);
+        // SENT means delivery completed; only FAILED records should create another queued attempt.
         if (notification.getStatus() != Notification.Status.FAILED) {
             throw new NotificationConflictException("Only failed notifications can be retried");
         }
@@ -61,6 +64,7 @@ public class NotificationService {
     @Transactional
     public Notification updateFailed(Long id, Long paymentId, Long orderId, BigDecimal amount, String type) {
         Notification notification = getById(id);
+        // Do not rewrite successful delivery history; corrections apply only before another retry is queued.
         if (notification.getStatus() != Notification.Status.FAILED) {
             throw new NotificationConflictException("Only failed notification records can be corrected");
         }

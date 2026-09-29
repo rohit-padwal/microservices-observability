@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/** Immutable-by-default risk evaluation; only an ADMIN may resolve a REVIEW through the service workflow. */
 @Entity
 @Table(name = "fraud_checks", indexes = {
     @Index(name = "idx_fraud_order_created_at", columnList = "order_id, created_at"),

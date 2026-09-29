@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/** Order Service's persisted aggregate; payment status is updated from the payment result, not arbitrary client input. */
 @Entity
 @Table(name = "orders", indexes = {
     @Index(name = "idx_orders_status_created_at", columnList = "status, created_at"),

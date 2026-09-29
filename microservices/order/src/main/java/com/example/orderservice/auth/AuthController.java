@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** HTTP boundary for public login, authenticated identity lookup, and ADMIN-only operator provisioning. */
 @RestController
 @Validated
 @RequestMapping("/api/auth")
@@ -26,6 +27,7 @@ public class AuthController {
         this.authService = authService;
     }
 
+    /** Returns a signed short-lived access token and role summary; the password is never echoed or serialized. */
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         AuthService.LoginResult result = authService.login(request.username(), request.password());
@@ -33,6 +35,7 @@ public class AuthController {
                 result.username(), List.of(result.role()));
     }
 
+    /** Creates an OPERATOR, not an ADMIN, so API requests cannot self-elevate privileges. */
     @PostMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
     public AuthService.UserSummary createOperator(@Valid @RequestBody CreateOperatorRequest request) {
@@ -44,12 +47,14 @@ public class AuthController {
         return new CurrentUser(jwt.getSubject(), jwt.getClaimAsStringList("roles"), jwt.getClaim("userId"));
     }
 
+    /** Login body; password policy is enforced when creating credentials, while login verifies the existing hash. */
     public record LoginRequest(@NotBlank @Size(max = 80) String username,
                                @NotBlank String password) {}
 
     public record CreateOperatorRequest(@NotBlank @Size(min = 3, max = 80) String username,
                                         @NotBlank @Size(min = 12, max = 72) String password) {}
 
+    /** Safe response fields only: never include the submitted password or persisted password hash. */
     public record LoginResponse(String accessToken, String tokenType, java.time.Instant expiresAt,
                                 String username, List<UserRole> roles) {}
 

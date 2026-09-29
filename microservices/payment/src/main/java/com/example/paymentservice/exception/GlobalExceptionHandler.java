@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.Map;
 
+/** Maps payment lookup, validation, and illegal lifecycle transitions to stable HTTP error responses. */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -44,6 +45,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        // Keep implementation details in logs while exposing only a generic 500 body to clients.
         log.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error(500, "Internal Server Error", "An unexpected error occurred"));
         }

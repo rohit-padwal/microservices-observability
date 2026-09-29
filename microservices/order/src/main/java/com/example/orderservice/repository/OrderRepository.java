@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 
+/** Database boundary for order CRUD, filtered pages, and dashboard aggregates. */
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
 		// Keep filtering, sorting, and page counts in SQL instead of loading the full table into memory.

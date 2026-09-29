@@ -34,6 +34,7 @@ function AppShell() {
 }
 
 export default function App() {
+  // Login is public; operational pages share one role-aware route boundary and the common application shell.
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
