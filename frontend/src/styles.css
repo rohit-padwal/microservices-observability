@@ -155,6 +155,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .detail-caption { margin-top: 24px; color: #7d877b; font-size: 10px; line-height: 1.7; }
 
 .login-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(390px, .92fr); background: var(--paper); }
+.access-denied { min-height: 100vh; display: grid; align-content: center; justify-items: center; gap: 12px; padding: 24px; text-align: center; }
+.access-denied h1 { margin: 0; font-size: 28px; }
+.access-denied p { color: var(--muted); font-size: 12px; }
 .login-aside { min-height: 100vh; position: relative; display: flex; flex-direction: column; justify-content: space-between; padding: 28px clamp(28px, 6vw, 85px) 27px; overflow: hidden; background: var(--green-dark); color: #eff3e8; }
 .login-aside::after { content: ''; position: absolute; right: -145px; bottom: 75px; width: 440px; height: 440px; border: 1px solid rgba(213,235,180,.15); border-radius: 50%; box-shadow: 0 0 0 45px rgba(213,235,180,.035), 0 0 0 90px rgba(213,235,180,.03); pointer-events: none; }
 .login-brand { display: flex; align-items: center; gap: 11px; }

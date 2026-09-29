@@ -17,6 +17,10 @@ spring:
       hibernate:
         format_sql: false
 
+  security:
+    jwt:
+      secret: ${JWT_SECRET:}
+
 management:
   endpoints:
     web:

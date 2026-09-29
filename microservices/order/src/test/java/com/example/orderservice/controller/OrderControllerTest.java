@@ -1,19 +1,23 @@
 package com.example.orderservice.controller;
 
+import com.example.orderservice.auth.AppUserRepository;
+import com.example.orderservice.config.SecurityConfig;
 import com.example.orderservice.model.Order;
 import com.example.orderservice.service.OrderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
@@ -23,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderController.class)
+@Import(SecurityConfig.class)
 class OrderControllerTest {
 
     @Autowired
@@ -31,7 +36,11 @@ class OrderControllerTest {
     @MockBean
     private OrderService orderService;
 
+        @MockBean
+        private AppUserRepository appUserRepository;
+
     @Test
+        @WithMockUser(roles = "OPERATOR")
     void searchOrdersReturnsPagedDtoAndAppliesFilters() throws Exception {
         Order order = new Order();
         order.setId(17L);
@@ -65,9 +74,39 @@ class OrderControllerTest {
     }
 
     @Test
+        @WithMockUser(roles = "OPERATOR")
     void searchOrdersRejectsPageSizesAboveTheApiLimit() throws Exception {
         mockMvc.perform(get("/api/orders").param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
     }
+
+    @Test
+    @WithMockUser(roles = "OPERATOR")
+    void statisticsEndpointReturnsGlobalSummary() throws Exception {
+        when(orderService.getStatistics()).thenReturn(
+                new OrderService.OrderStatistics(12, 8, 2, 1, new BigDecimal("318.50")));
+
+        mockMvc.perform(get("/api/orders/statistics"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalOrders").value(12))
+                .andExpect(jsonPath("$.paidVolume").value(318.5));
+    }
+
+        @Test
+        void ordersRequireAuthentication() throws Exception {
+                mockMvc.perform(get("/api/orders")).andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        void malformedBearerTokenIsRejected() throws Exception {
+                mockMvc.perform(get("/api/orders").header("Authorization", "Bearer not.a.valid.jwt"))
+                                .andExpect(status().isUnauthorized());
+        }
+
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        void unrecognizedRoleCannotReadOperationalOrders() throws Exception {
+                mockMvc.perform(get("/api/orders")).andExpect(status().isForbidden());
+        }
 }

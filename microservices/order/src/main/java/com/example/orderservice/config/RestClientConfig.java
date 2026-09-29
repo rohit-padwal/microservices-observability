@@ -5,6 +5,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
@@ -25,7 +29,20 @@ public class RestClientConfig {
         return builder
                 .baseUrl(paymentServiceBaseUrl)
                 .requestFactory(requestFactory())
+                .requestInterceptor(bearerTokenRelay())
                 .build();
+    }
+
+    private ClientHttpRequestInterceptor bearerTokenRelay() {
+        return (request, body, execution) -> {
+            if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
+                String authorization = attributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
+                if (authorization != null && !authorization.isBlank()) {
+                    request.getHeaders().set(HttpHeaders.AUTHORIZATION, authorization);
+                }
+            }
+            return execution.execute(request, body);
+        };
     }
 
     private ClientHttpRequestFactory requestFactory() {

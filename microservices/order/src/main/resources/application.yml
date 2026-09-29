@@ -21,6 +21,14 @@ services:
   payment-service:
     base-url: ${PAYMENT_SERVICE_URL:http://localhost:8083}
 
+security:
+  jwt:
+    secret: ${JWT_SECRET:}
+    issuer: fieldnotes-observability
+  bootstrap:
+    username: ${AUTH_BOOTSTRAP_USERNAME:}
+    password: ${AUTH_BOOTSTRAP_PASSWORD:}
+
 management:
   endpoints:
     web:

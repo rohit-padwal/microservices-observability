@@ -1,24 +1,35 @@
 package com.example.fraudservice.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "fraud_checks")
+@Table(name = "fraud_checks", indexes = {
+    @Index(name = "idx_fraud_order_created_at", columnList = "order_id, created_at"),
+    @Index(name = "idx_fraud_payment_created_at", columnList = "payment_id, created_at")
+})
 public class FraudCheck {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull
+    @Positive
     @Column(name = "order_id", nullable = false)
     private Long orderId;
 
+    @NotNull
+    @Positive
     @Column(name = "payment_id", nullable = false)
     private Long paymentId;
 
+    @NotNull
+    @Positive
     @Column(nullable = false)
     private BigDecimal amount;
 
@@ -66,6 +77,10 @@ public class FraudCheck {
 
     public Decision getDecision() {
         return decision;
+    }
+
+    public void setDecision(Decision decision) {
+        this.decision = decision;
     }
 
     public Instant getCreatedAt() {

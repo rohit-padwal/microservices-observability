@@ -143,29 +143,38 @@ to Alertmanager, which routes to Slack and/or email based on severity.
 
 ## How to start
 
-1. **Prerequisites:** Docker + Docker Compose, ~4GB free RAM for the stack.
-2. Copy the environment template and fill in real values (Slack webhook,
-   SMTP creds) — or leave the placeholders if you just want the demo running
-   without real alert delivery:
+1. **Prerequisites:** Docker + Docker Compose, Java 21, and ~4GB free RAM.
+2. Copy the environment template and set database/alerting values plus a fresh
+    JWT signing secret and bootstrap administrator password:
    ```bash
    cp .env.example .env
+  openssl rand -hex 32
    ```
+    Put the generated value in `JWT_SECRET`; use a unique password of at least
+    12 characters for `AUTH_BOOTSTRAP_PASSWORD`. The bootstrap account is stored
+    with BCrypt and can create operator accounts through `POST /api/auth/users`.
 3. Bring everything up:
    ```bash
    docker compose up -d --build
    ```
 4. Wait ~30–60s for Postgres health checks and service startup, then place a
-   test order through the gateway:
+   test order through the gateway using the bootstrap administrator token:
    ```bash
+   set -a && source .env && set +a
+   ACCESS_TOKEN=$(curl -sS http://localhost:8080/api/auth/login \
+     -H "Content-Type: application/json" \
+     -d "{\"username\":\"$AUTH_BOOTSTRAP_USERNAME\",\"password\":\"$AUTH_BOOTSTRAP_PASSWORD\"}" \
+     | jq -r .accessToken)
    curl -X POST http://localhost:8080/api/orders \
      -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $ACCESS_TOKEN" \
      -d '{"userId": 1, "itemName": "Widget", "quantity": 2, "totalAmount": 49.99}'
    ```
 5. Open the UIs:
 
    | Tool | URL |
    |---|---|
-  | Order Desk (React) | http://localhost:5173 |
+    | Order Desk (React) | http://localhost:5173 |
    | Grafana | http://localhost:3000 (anonymous viewer access enabled) |
    | Prometheus | http://localhost:9090 |
    | Alertmanager | http://localhost:9093 |
@@ -173,10 +182,9 @@ to Alertmanager, which routes to Slack and/or email based on severity.
    | VictoriaLogs (via Grafana) | Explore → VictoriaLogs datasource |
    | VictoriaMetrics | http://localhost:8428/vmui |
 
-    The Order Desk uses the order API through the gateway. Its sign-in is a
-    client-only demo session; the Spring Boot services do not validate JWTs or
-    enforce protected routes. For frontend-only development, start the API stack
-    with Docker Compose, then run `cd frontend && npm ci && npm run dev` and open
+    The Order Desk authenticates against Order Service and calls protected APIs
+    through the gateway. For frontend-only development, start the API stack with
+    Docker Compose, then run `cd frontend && npm ci && npm run dev` and open
     http://localhost:5173.
 
 6. Generate steady traffic while you explore:

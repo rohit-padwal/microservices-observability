@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.http.HttpHeaders;
 
 import java.math.BigDecimal;
 import java.util.concurrent.*;
@@ -46,19 +47,23 @@ public class NotificationDispatcher {
         meterRegistry.gauge("notification.queue.size", queue, BlockingQueue::size);
     }
 
-    public void dispatchPaymentCompleted(Long paymentId, Long orderId, BigDecimal amount, boolean success) {
-        executor.submit(() -> send(paymentId, orderId, amount, success));
+    public void dispatchPaymentCompleted(Long paymentId, Long orderId, BigDecimal amount,
+                                         boolean success, String authorization) {
+        // Request context is lost on worker threads, so capture the signed token before enqueueing.
+        executor.submit(() -> send(paymentId, orderId, amount, success, authorization));
     }
 
-    private void send(Long paymentId, Long orderId, BigDecimal amount, boolean success) {
+    private void send(Long paymentId, Long orderId, BigDecimal amount, boolean success, String authorization) {
         try {
-            notificationServiceClient.post()
+            var request = notificationServiceClient.post()
                     .uri("/api/notifications")
                     .body(new NotificationRequest(
                             paymentId, orderId, amount,
-                            success ? "PAYMENT_SUCCESS" : "PAYMENT_FAILED"))
-                    .retrieve()
-                    .toBodilessEntity();
+                            success ? "PAYMENT_SUCCESS" : "PAYMENT_FAILED"));
+            if (authorization != null && !authorization.isBlank()) {
+                request.header(HttpHeaders.AUTHORIZATION, authorization);
+            }
+            request.retrieve().toBodilessEntity();
         } catch (Exception ex) {
             log.error("Failed to dispatch notification for paymentId={}", paymentId, ex);
         }

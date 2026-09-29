@@ -7,8 +7,13 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.math.BigDecimal;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -18,6 +23,8 @@ public class FraudDetectionService {
 
     private static final BigDecimal REVIEW_THRESHOLD = new BigDecimal("1000");
     private static final BigDecimal DECLINE_THRESHOLD = new BigDecimal("5000");
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> SORT_FIELDS = Set.of("id", "createdAt", "riskScore", "amount", "decision");
 
     private final FraudCheckRepository fraudCheckRepository;
 
@@ -73,5 +80,59 @@ public class FraudDetectionService {
             MDC.remove("payment_id");
             MDC.remove("error_code");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public Page<FraudCheck> search(FraudCheck.Decision decision, Long orderId, Long paymentId,
+                                   BigDecimal minimumAmount, BigDecimal maximumAmount,
+                                   int page, int size, String sortField, Sort.Direction direction) {
+        if (!SORT_FIELDS.contains(sortField)) throw new IllegalArgumentException("Unsupported fraud-check sort field");
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                Sort.by(direction, sortField));
+        return fraudCheckRepository.search(decision, orderId, paymentId, minimumAmount, maximumAmount, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public FraudCheck getById(Long id) {
+        return fraudCheckRepository.findById(id).orElseThrow(() -> new FraudCheckNotFoundException(id));
+    }
+
+    @Transactional(readOnly = true)
+    public FraudStatistics getStatistics() {
+        Double average = fraudCheckRepository.averageRiskScore();
+        return new FraudStatistics(fraudCheckRepository.count(),
+                fraudCheckRepository.countByDecision(FraudCheck.Decision.APPROVE),
+                fraudCheckRepository.countByDecision(FraudCheck.Decision.REVIEW),
+                fraudCheckRepository.countByDecision(FraudCheck.Decision.DECLINE), average == null ? 0 : average);
+    }
+
+    @Transactional
+    public FraudCheck resolveReview(Long id, FraudCheck.Decision decision) {
+        FraudCheck check = getById(id);
+        if (check.getDecision() != FraudCheck.Decision.REVIEW || decision == FraudCheck.Decision.REVIEW) {
+            throw new FraudConflictException("Only review decisions can be resolved to APPROVE or DECLINE");
+        }
+        check.setDecision(decision);
+        return fraudCheckRepository.save(check);
+    }
+
+    @Transactional
+    public void deleteReview(Long id) {
+        FraudCheck check = getById(id);
+        if (check.getDecision() != FraudCheck.Decision.REVIEW) {
+            throw new FraudConflictException("Terminal fraud decisions are immutable and cannot be deleted");
+        }
+        fraudCheckRepository.delete(check);
+    }
+
+    public record FraudStatistics(long totalChecks, long approved, long underReview,
+                                  long declined, double averageRiskScore) {}
+
+    public static class FraudCheckNotFoundException extends RuntimeException {
+        public FraudCheckNotFoundException(Long id) { super("Fraud check not found: " + id); }
+    }
+
+    public static class FraudConflictException extends RuntimeException {
+        public FraudConflictException(String message) { super(message); }
     }
 }

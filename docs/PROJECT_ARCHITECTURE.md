@@ -32,15 +32,23 @@ flowchart LR
 
 ## Request Flows
 
-1. The React dashboard dispatches Redux Toolkit thunks to `GET /api/orders`,
+1. The operator signs in through `POST /api/auth/login`; Order Service verifies
+  the BCrypt hash and signs a short-lived HS256 JWT. The React dashboard keeps
+  it in memory and Redux thunks attach it as a bearer token.
+2. The React dashboard dispatches Redux Toolkit thunks to `GET /api/orders`,
    `GET /api/orders/statistics`, `POST /api/orders`, or the cancellation route.
-2. NGINX forwards the request to Order Service. Order Service validates the
+3. NGINX forwards the request to Order Service. Its resource-server filter
+  validates signature, issuer, expiry, and role before the controller runs.
+  Order Service validates the
    create DTO, persists the order, and calls Payment Service inside its current
-   transaction. The payment result determines `PAID` or `PAYMENT_FAILED`.
-3. Payment Service calls Fraud Service synchronously because it needs a verdict.
+  transaction, forwarding the signed bearer token. The payment result
+  determines `PAID` or `PAYMENT_FAILED`.
+4. Payment Service calls Fraud Service synchronously because it needs a verdict;
+  the bearer token is forwarded again.
    Notifications are enqueued and processed asynchronously so notification work
-   does not hold up the payment response.
-4. Micrometer tracing propagates trace context over HTTP; services export spans
+  does not hold up the payment response. The authorization header is captured
+  at enqueue time and relayed by the worker to Notification Service.
+5. Micrometer tracing propagates trace context over HTTP; services export spans
    to the OTel Collector. Metrics flow through Prometheus and logs through the
    collector to VictoriaLogs. Grafana dashboards consume the telemetry stores.
 
@@ -54,13 +62,15 @@ to the visible page. The repositories use Spring Data JPA; Hibernate currently
 manages schema updates with `ddl-auto: update`, which is convenient for this
 sandbox but should become versioned migrations before production.
 
-The other service APIs are documented in [API.md](API.md). Their collection
-endpoints are not yet consistently paged. There is no production user/account
-model, JWT issuer/verifier, password hashing, or role enforcement. The browser
-login and protected route are illustrative only. A production implementation
-must secure every externally reachable service, not only hide React routes, and
-must propagate identity/service credentials over both synchronous and queued
-calls.
+The other service APIs are documented in [API.md](API.md); their collection
+endpoints are database-paged with allow-listed sorts and filters. Order Service
+owns `app_users` in `orderdb`; BCrypt hashes are stored, never plaintext. The
+bootstrap `ADMIN` is provisioned from environment variables, and admins create
+operators. All services validate the same externally configured HMAC key and
+issuer. `OPERATOR` is limited to operational flows; `ADMIN` owns account
+provisioning, statistics, and destructive/decision-resolution operations. The
+browser guard mirrors those roles for navigation but is not the authorization
+boundary.
 
 ## Operational Trade-offs
 
@@ -71,9 +81,9 @@ calls.
   actions.
 - The notification queue is in-process and bounded, not durable. A process restart
   can lose queued work; use a durable broker when delivery guarantees matter.
-- `findAll`-style collections in payment/fraud/notification can grow without
-  bound. Those APIs need pagination, stable ordering, and indexes aligned with
-  their filters before production traffic.
+- Payment, fraud, and notification lists now page in SQL with bounded sizes;
+  indexes cover their primary order/payment/status access paths. Validate index
+  selectivity and sort plans using production-like data before rollout.
 - Add measured caching only for read paths with clear invalidation rules. Order
   status and payment decisions are mutable and should not be cached casually.
 - Docker Compose is the local deployment boundary; container health and

@@ -1,28 +1,43 @@
 package com.example.notificationservice.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
-@Table(name = "notifications")
+@Table(name = "notifications", indexes = {
+    @Index(name = "idx_notifications_order_created_at", columnList = "order_id, created_at"),
+    @Index(name = "idx_notifications_payment_created_at", columnList = "payment_id, created_at")
+})
 public class Notification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotNull
+    @Positive
     @Column(name = "payment_id", nullable = false)
     private Long paymentId;
 
+    @NotNull
+    @Positive
     @Column(name = "order_id", nullable = false)
     private Long orderId;
 
+    @NotNull
+    @Positive
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
+    @NotBlank
+    @Size(max = 80)
+    @Column(nullable = false, length = 80)
     private String type;
 
     @Enumerated(EnumType.STRING)
@@ -52,16 +67,32 @@ public class Notification {
         return paymentId;
     }
 
+    public void setPaymentId(Long paymentId) {
+        this.paymentId = paymentId;
+    }
+
     public Long getOrderId() {
         return orderId;
+    }
+
+    public void setOrderId(Long orderId) {
+        this.orderId = orderId;
     }
 
     public BigDecimal getAmount() {
         return amount;
     }
 
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
     public String getType() {
         return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 
     public Status getStatus() {

@@ -10,14 +10,24 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpHeaders;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
-import java.util.List;
+import java.math.BigDecimal;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class PaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> SORT_FIELDS = Set.of("id", "createdAt", "amount", "status");
 
     private final PaymentRepository paymentRepository;
     private final FraudServiceClient fraudServiceClient;
@@ -79,7 +89,8 @@ public class PaymentService {
             }
 
             notificationDispatcher.dispatchPaymentCompleted(
-                    finalPayment.getId(), finalPayment.getOrderId(), finalPayment.getAmount(), !declined);
+                    finalPayment.getId(), finalPayment.getOrderId(), finalPayment.getAmount(), !declined,
+                    currentAuthorizationHeader());
 
             return finalPayment;
         } finally {
@@ -89,9 +100,21 @@ public class PaymentService {
         }
     }
 
+    private String currentAuthorizationHeader() {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes) {
+            return attributes.getRequest().getHeader(HttpHeaders.AUTHORIZATION);
+        }
+        return null;
+    }
+
     @Transactional(readOnly = true)
-    public List<Payment> getAllPayments() {
-        return paymentRepository.findAll();
+    public Page<Payment> searchPayments(Payment.PaymentStatus status, Long orderId,
+                                        BigDecimal minimumAmount, BigDecimal maximumAmount,
+                                        int page, int size, String sortField, Sort.Direction direction) {
+        if (!SORT_FIELDS.contains(sortField)) throw new IllegalArgumentException("Unsupported payment sort field");
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE),
+                Sort.by(direction, sortField));
+        return paymentRepository.search(status, orderId, minimumAmount, maximumAmount, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -101,7 +124,38 @@ public class PaymentService {
     }
 
     @Transactional(readOnly = true)
-    public List<Payment> getPaymentsByOrderId(Long orderId) {
-        return paymentRepository.findByOrderId(orderId);
+    public PaymentStatistics getStatistics() {
+        BigDecimal completedAmount = paymentRepository.sumAmountByStatus(Payment.PaymentStatus.COMPLETED);
+        return new PaymentStatistics(paymentRepository.count(),
+                paymentRepository.countByStatus(Payment.PaymentStatus.PENDING),
+                paymentRepository.countByStatus(Payment.PaymentStatus.COMPLETED),
+                paymentRepository.countByStatus(Payment.PaymentStatus.FAILED),
+                completedAmount == null ? BigDecimal.ZERO : completedAmount);
+    }
+
+    @Transactional
+    public Payment updateStatus(Long id, Payment.PaymentStatus status) {
+        Payment payment = getPaymentById(id);
+        if (payment.getStatus() != Payment.PaymentStatus.PENDING || status != Payment.PaymentStatus.FAILED) {
+            throw new PaymentConflictException("Only pending payments may be administratively marked failed");
+        }
+        payment.setStatus(status);
+        return paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public void deletePendingPayment(Long id) {
+        Payment payment = getPaymentById(id);
+        if (payment.getStatus() != Payment.PaymentStatus.PENDING) {
+            throw new PaymentConflictException("Completed payment records cannot be deleted");
+        }
+        paymentRepository.delete(payment);
+    }
+
+    public record PaymentStatistics(long totalPayments, long pendingPayments, long completedPayments,
+                                    long failedPayments, BigDecimal completedAmount) {}
+
+    public static class PaymentConflictException extends RuntimeException {
+        public PaymentConflictException(String message) { super(message); }
     }
 }

@@ -1,9 +1,11 @@
 import { createAsyncThunk, createSelector, createSlice } from '@reduxjs/toolkit';
+import { getAccessToken } from '../../auth/accessToken.js';
 
 async function apiRequest(path, options = {}) {
   const headers = {
     Accept: 'application/json',
     ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+    ...(getAccessToken() ? { Authorization: `Bearer ${getAccessToken()}` } : {}),
     ...options.headers,
   };
 
@@ -19,6 +21,9 @@ async function apiRequest(path, options = {}) {
     }
   }
   if (!response.ok) {
+    if (response.status === 401 && getAccessToken()) {
+      window.dispatchEvent(new Event('auth:unauthorized'));
+    }
     throw new Error(body?.message || body?.error || `Request failed (${response.status})`);
   }
   return body;

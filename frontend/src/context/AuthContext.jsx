@@ -1,58 +1,59 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { getAccessToken, setAccessToken } from '../auth/accessToken.js';
 
 const AuthContext = createContext(null);
-const SESSION_KEY = 'fieldnotes.demo-session';
-
-function encodeBase64Url(value) {
-  const bytes = new TextEncoder().encode(value);
-  const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
-}
-
-function createDemoToken(username) {
-  const issuedAt = Math.floor(Date.now() / 1000);
-  // This unsigned token is only a local route-demo value; the backend does not trust or validate it.
-  const header = encodeBase64Url(JSON.stringify({ alg: 'none', typ: 'JWT' }));
-  const payload = encodeBase64Url(JSON.stringify({
-    sub: username,
-    iat: issuedAt,
-    exp: issuedAt + 8 * 60 * 60,
-  }));
-  return `${header}.${payload}.`;
-}
-
-function restoreSession() {
-  try {
-    const session = JSON.parse(sessionStorage.getItem(SESSION_KEY));
-    if (!session?.token || !session?.username) return null;
-    const encodedPayload = session.token.split('.')[1].replaceAll('-', '+').replaceAll('_', '/');
-    const payload = JSON.parse(decodeURIComponent(Array.from(atob(encodedPayload), (character) =>
-      `%${character.charCodeAt(0).toString(16).padStart(2, '0')}`,
-    ).join('')));
-    return payload.exp > Date.now() / 1000 ? session : null;
-  } catch {
-    return null;
-  }
-}
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(restoreSession);
+  const [session, setSession] = useState(null);
 
-  const signIn = useCallback((username) => {
-    const nextSession = { username, token: createDemoToken(username) };
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(nextSession));
-    setSession(nextSession);
+  const signIn = useCallback(async (username, password) => {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.message || 'Invalid username or password.');
+    if (!payload.accessToken || !payload.expiresAt) throw new Error('Authentication response was incomplete.');
+
+    setAccessToken(payload.accessToken);
+    const authenticatedSession = {
+      username: payload.username,
+      roles: payload.roles ?? [],
+      expiresAt: payload.expiresAt,
+    };
+    setSession(authenticatedSession);
+    return authenticatedSession;
   }, []);
 
   const signOut = useCallback(() => {
-    sessionStorage.removeItem(SESSION_KEY);
+    setAccessToken(null);
     setSession(null);
   }, []);
 
+  useEffect(() => {
+    function handleUnauthorized() {
+      signOut();
+    }
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, [signOut]);
+
+  useEffect(() => {
+    if (!session?.expiresAt) return undefined;
+    const remaining = Date.parse(session.expiresAt) - Date.now();
+    if (remaining <= 0) {
+      signOut();
+      return undefined;
+    }
+    const timer = window.setTimeout(signOut, remaining);
+    return () => window.clearTimeout(timer);
+  }, [session, signOut]);
+
   const value = useMemo(() => ({
-    isAuthenticated: Boolean(session),
+    isAuthenticated: Boolean(session && getAccessToken()),
     username: session?.username ?? '',
-    token: session?.token ?? null,
+    roles: session?.roles ?? [],
     signIn,
     signOut,
   }), [session, signIn, signOut]);
